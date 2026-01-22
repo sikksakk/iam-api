@@ -69,6 +69,8 @@ Once deployed, configure the container settings:
    WEBSITES_PORT = 8080
    WEBSITES_ENABLE_APP_SERVICE_STORAGE = false
    ASPNETCORE_ENVIRONMENT = Production
+  # Optional: enable Swagger UI in Production
+  Swagger__Enabled = true
    ```
 4. Click **Save**
 
@@ -182,6 +184,11 @@ https://iam-api.azurewebsites.net
 Test the Swagger UI:
 ```
 https://iam-api.azurewebsites.net/swagger
+```
+
+Health endpoint (useful for monitoring / container health checks):
+```
+https://iam-api.azurewebsites.net/healthz
 ```
 
 ### Monitor Logs

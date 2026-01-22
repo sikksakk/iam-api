@@ -37,7 +37,7 @@ Navigate to `http://localhost:5000` for the web UI or `http://localhost:5000/swa
 
 ```powershell
 docker build -t iam-api .
-docker run -p 8080:80 iam-api
+docker run -p 8080:8080 iam-api
 ```
 
 ## Deploying to Azure App Service
@@ -50,6 +50,15 @@ az acr build --registry <your-acr> --image iam-api:latest .
 2. Create App Service and deploy:
 ```powershell
 az webapp create --resource-group <rg> --plan <plan> --name <app-name> --deployment-container-image-name <your-acr>.azurecr.io/iam-api:latest
+```
+
+App settings to add in Azure App Service (Configuration):
+```
+WEBSITES_PORT = 8080
+WEBSITES_ENABLE_APP_SERVICE_STORAGE = false
+ASPNETCORE_ENVIRONMENT = Production
+# Optional: enable Swagger UI in Production
+Swagger__Enabled = true
 ```
 
 ## Example Usage
