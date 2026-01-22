@@ -60,15 +60,19 @@ You can also manually trigger the workflow from the Actions tab.
 
 #### Step 3: Configure Application Settings
 
-Once deployed, add any needed environment variables:
+Once deployed, configure the container settings:
 
-1. Go to your App Service → **Configuration** → **Application settings**
-2. Add settings (optional):
+1. Go to your App Service → **Configuration** → **General settings**
+2. **Startup Command**: Leave empty (uses Dockerfile ENTRYPOINT)
+3. **App settings** (optional):
    ```
    ASPNETCORE_ENVIRONMENT = Production
    Logging__LogLevel__Default = Information
+   WEBSITES_PORT = 8080
    ```
-3. Click **Save**
+4. Click **Save**
+
+**Important**: Do NOT set a custom startup command. The container's ENTRYPOINT will handle startup automatically.
 
 #### Step 4: Enable Continuous Deployment (Optional)
 

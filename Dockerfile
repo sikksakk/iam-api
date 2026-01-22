@@ -12,9 +12,7 @@ RUN dotnet publish -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-
-# Azure App Service expects app files in /home/site/wwwroot
-WORKDIR /home/site/wwwroot
+WORKDIR /app
 
 # Copy published app
 COPY --from=build /app/publish .
