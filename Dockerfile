@@ -12,13 +12,18 @@ RUN dotnet publish -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
-WORKDIR /app
+
+# Azure App Service expects app files in /home/site/wwwroot
+WORKDIR /home/site/wwwroot
 
 # Copy published app
 COPY --from=build /app/publish .
 
-# Expose port 80 for Azure App Service
+# Expose ports - Azure App Service uses 8080
+EXPOSE 8080
 EXPOSE 80
-ENV ASPNETCORE_URLS=http://+:80
+
+# Azure App Service will set WEBSITES_PORT=8080 automatically
+ENV ASPNETCORE_URLS=http://+:8080
 
 ENTRYPOINT ["dotnet", "iam-api.dll"]
