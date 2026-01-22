@@ -63,16 +63,16 @@ You can also manually trigger the workflow from the Actions tab.
 Once deployed, configure the container settings:
 
 1. Go to your App Service → **Configuration** → **General settings**
-2. **Startup Command**: Leave empty (uses Dockerfile ENTRYPOINT)
-3. **App settings** (optional):
+2. **Startup Command**: Leave empty (uses container ENTRYPOINT)
+3. **App settings** (required):
    ```
-   ASPNETCORE_ENVIRONMENT = Production
-   Logging__LogLevel__Default = Information
    WEBSITES_PORT = 8080
+   WEBSITES_ENABLE_APP_SERVICE_STORAGE = false
+   ASPNETCORE_ENVIRONMENT = Production
    ```
 4. Click **Save**
 
-**Important**: Do NOT set a custom startup command. The container's ENTRYPOINT will handle startup automatically.
+**Important**: `WEBSITES_ENABLE_APP_SERVICE_STORAGE=false` prevents Azure from mounting persistent storage at `/home/site/wwwroot`, which would overwrite your container's app files.
 
 #### Step 4: Enable Continuous Deployment (Optional)
 
@@ -123,6 +123,15 @@ az webapp config container set \
   --docker-registry-server-url https://$ACR_NAME.azurecr.io \
   --docker-registry-server-user <ACR_USERNAME> \
   --docker-registry-server-password <ACR_PASSWORD>
+
+# Set required application settings
+az webapp config appsettings set \
+  --name $APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    WEBSITES_PORT=8080 \
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE=false \
+    ASPNETCORE_ENVIRONMENT=Production
 
 # Enable continuous deployment webhook
 az webapp deployment container config \
@@ -230,10 +239,12 @@ az webapp log tail --name $APP_NAME --resource-group $RESOURCE_GROUP
 
 ### Common Issues
 
-1. **Port mismatch**: Ensure `ASPNETCORE_URLS=http://+:80` is set
+1. **Port mismatch**: Ensure `WEBSITES_PORT=8080` is set in Application Settings
 2. **ACR credentials**: Verify credentials are correct
 3. **Image not found**: Check image name and tag in ACR
-4. **Health check failures**: Add health check endpoint if needed
+4. **Persistent storage mount**: If `WEBSITES_ENABLE_APP_SERVICE_STORAGE=true`, Azure mounts over `/home/site/wwwroot`. Set to `false` for custom containers.
+5. **App not found**: Container uses `/app` for app files, not `/home/site/wwwroot`
+6. **Health check failures**: Add health check endpoint if needed
 
 ### Health Checks
 

@@ -17,11 +17,10 @@ WORKDIR /app
 # Copy published app
 COPY --from=build /app/publish .
 
-# Expose ports - Azure App Service uses 8080
+# Expose port 8080 for Azure App Service
 EXPOSE 8080
-EXPOSE 80
 
-# Azure App Service will set WEBSITES_PORT=8080 automatically
+# Set listening port for Azure
 ENV ASPNETCORE_URLS=http://+:8080
 
 ENTRYPOINT ["dotnet", "iam-api.dll"]
