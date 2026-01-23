@@ -34,6 +34,8 @@ public class CertificateService : ICertificateService
 
     public async Task<CertificateResponse?> GetOrCreateCertificateAsync(string customerName)
     {
+        _logger.LogInformation("GetOrCreateCertificateAsync called for customer: {Customer}", customerName);
+        
         await _certificateLock.WaitAsync();
         try
         {
@@ -97,24 +99,38 @@ public class CertificateService : ICertificateService
         {
             var validityHours = _configuration.GetValue("AzureAd:CertificateValidityHours", 2);
             var clientId = _configuration["AzureAd:ClientId"];
+            var tenantId = _configuration["AzureAd:TenantId"];
+            
+            _logger.LogDebug("Configuration check - ClientId: {HasClientId}, TenantId: {HasTenantId}, ValidityHours: {Hours}",
+                !string.IsNullOrEmpty(clientId), !string.IsNullOrEmpty(tenantId), validityHours);
             
             if (string.IsNullOrEmpty(clientId))
             {
-                _logger.LogWarning("AzureAd:ClientId not configured, certificate management disabled");
+                _logger.LogError("AzureAd:ClientId not configured. Certificate management requires Azure AD configuration. Set AzureAd:ClientId and AzureAd:TenantId in configuration.");
                 return null;
+            }
+            
+            if (string.IsNullOrEmpty(tenantId))
+            {
+                _logger.LogWarning("AzureAd:TenantId not configured, but will attempt to proceed");
             }
 
             _logger.LogInformation("Creating new certificate for customer: {Customer}", customerName);
 
             // Generate certificate
+            _logger.LogDebug("Generating self-signed certificate with {Hours} hour validity", validityHours);
             var certPassword = GenerateSecurePassword();
             var (pfxBytes, thumbprint, certificate) = GenerateSelfSignedCertificate(
                 $"CN=IAM-{customerName}",
                 validityHours,
                 certPassword);
+            
+            _logger.LogDebug("Certificate generated - Thumbprint: {Thumbprint}, Size: {Size} bytes", thumbprint, pfxBytes.Length);
 
             // Upload to Azure AD App Registration
+            _logger.LogDebug("Attempting to upload certificate to Azure AD for ClientId: {ClientId}", clientId);
             var keyId = await UploadCertificateToAzureAsync(clientId, certificate);
+            _logger.LogDebug("Certificate uploaded successfully with KeyId: {KeyId}", keyId);
 
             // Store certificate
             var customerCert = new CustomerCertificate
@@ -143,7 +159,13 @@ public class CertificateService : ICertificateService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create certificate for {Customer}", customerName);
+            _logger.LogError(ex, "Failed to create certificate for {Customer}. Error type: {Type}, Message: {Message}", 
+                customerName, ex.GetType().Name, ex.Message);
+            if (ex.InnerException != null)
+            {
+                _logger.LogError("Inner exception: {InnerType} - {InnerMessage}", 
+                    ex.InnerException.GetType().Name, ex.InnerException.Message);
+            }
             return null;
         }
     }
