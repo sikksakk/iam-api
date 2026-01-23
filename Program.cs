@@ -18,6 +18,8 @@ if (int.TryParse(inboundPort, out var port) && port > 0)
 // Add services to the container
 builder.Services.AddSingleton<IDataStore, InMemoryDataStore>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
+builder.Services.AddSingleton<ICertificateService, CertificateService>();
+builder.Services.AddHostedService<IamApi.CertificateMaintenanceWorker>();
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
