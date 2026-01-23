@@ -90,6 +90,38 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
+        }
+
+        .user-info {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .username-display {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
         }
 
         h1 {
@@ -695,6 +727,10 @@
 
     <div class="container">
         <header>
+            <div class="user-info">
+                <span class="username-display">👤 <span id="usernameDisplay"></span></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
             <h1>🚀 IAM Job Management</h1>
             <p class="subtitle">Create jobs and monitor execution logs</p>
         </header>
@@ -795,6 +831,39 @@
     </div>
 
     <script>
+        // Check authentication
+        const authToken = localStorage.getItem('authToken');
+        const username = localStorage.getItem('username');
+        
+        if (!authToken) {
+            window.location.href = '/login.html';
+        }
+
+        // Add auth header to all fetch requests
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            if (args[1]) {
+                args[1].headers = {
+                    ...args[1].headers,
+                    'Authorization': `Bearer ${authToken}`
+                };
+            } else {
+                args[1] = {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                };
+            }
+            
+            return originalFetch.apply(this, args).then(response => {
+                if (response.status === 401) {
+                    localStorage.clear();
+                    window.location.href = '/login.html';
+                }
+                return response;
+            });
+        };
+
         const API_BASE = window.location.origin;
         let editingJobId = null;
         let logStreamInterval = null; // For streaming logs in modal
@@ -814,6 +883,17 @@
             DEFAULT_PARAMS.forEach(param => {
                 addParameterRow(param.key, param.value);
             });
+        }
+
+        // Display username
+        document.getElementById('usernameDisplay').textContent = username || 'User';
+
+        // Logout function
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.clear();
+                window.location.href = '/login.html';
+            }
         }
 
         // Load online orchestrators
