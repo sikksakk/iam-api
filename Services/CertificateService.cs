@@ -26,8 +26,24 @@ public class CertificateService : ICertificateService
     {
         if (_graphClient == null)
         {
-            var credential = new DefaultAzureCredential();
-            _graphClient = new GraphServiceClient(credential);
+            try
+            {
+                _logger.LogDebug("Initializing Microsoft Graph client with Managed Identity");
+                
+                // Use ManagedIdentityCredential specifically for Container Apps
+                var credential = new ManagedIdentityCredential();
+                _graphClient = new GraphServiceClient(credential);
+                
+                _logger.LogInformation("Graph client initialized successfully with Managed Identity");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize Graph client. Ensure Managed Identity is enabled on this Container App. See CERTIFICATE-CONFIG.md for setup instructions.");
+                throw new InvalidOperationException(
+                    "Cannot initialize Graph client. Managed Identity not available. " +
+                    "Please enable System-Assigned Managed Identity on your Azure Container App and grant it permissions to the App Registration.",
+                    ex);
+            }
         }
         return _graphClient;
     }
@@ -211,6 +227,7 @@ public class CertificateService : ICertificateService
     {
         try
         {
+            _logger.LogDebug("Getting Graph client for certificate upload");
             var graphClient = GetGraphClient();
             
             // Create key credential
@@ -223,27 +240,66 @@ public class CertificateService : ICertificateService
                 EndDateTime = certificate.NotAfter.ToUniversalTime()
             };
 
+            _logger.LogDebug("Fetching application {ClientId} from Azure AD", clientId);
+            
             // Get current application
             var application = await graphClient.Applications[clientId].GetAsync();
             
-            if (application?.KeyCredentials == null)
+            if (application == null)
             {
-                application!.KeyCredentials = new List<KeyCredential>();
+                _logger.LogError("Application {ClientId} not found in Azure AD", clientId);
+                throw new InvalidOperationException($"Application {clientId} not found. Verify the ClientId is correct (use Application/Client ID, not Object ID).");
+            }
+            
+            if (application.KeyCredentials == null)
+            {
+                application.KeyCredentials = new List<KeyCredential>();
             }
 
+            _logger.LogDebug("Adding certificate to application. Current certificates: {Count}", application.KeyCredentials.Count);
+            
             // Add new certificate
             application.KeyCredentials.Add(keyCredential);
 
             // Update application
+            _logger.LogDebug("Updating application in Azure AD");
             await graphClient.Applications[clientId].PatchAsync(application);
 
             _logger.LogInformation("Certificate uploaded to Azure AD for app {ClientId}", clientId);
             
             return keyCredential.KeyId?.ToString() ?? Guid.NewGuid().ToString();
         }
+        catch (InvalidOperationException)
+        {
+            throw; // Re-throw our custom exceptions
+        }
+        catch (Azure.Identity.CredentialUnavailableException ex)
+        {
+            _logger.LogError(ex, "Managed Identity not available. Ensure System-Assigned Managed Identity is enabled on the Container App.");
+            throw new InvalidOperationException(
+                "Managed Identity authentication failed. " +
+                "Please enable System-Assigned Managed Identity on your Azure Container App in the Identity settings.",
+                ex);
+        }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError ex) when (ex.ResponseStatusCode == 403)
+        {
+            _logger.LogError(ex, "Permission denied. Managed Identity needs Application.ReadWrite.All or Owner role on the App Registration.");
+            throw new InvalidOperationException(
+                "Permission denied when accessing Azure AD. " +
+                "Grant the Container App's Managed Identity 'Application Administrator' role or 'Owner' role on the App Registration.",
+                ex);
+        }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError ex) when (ex.ResponseStatusCode == 404)
+        {
+            _logger.LogError(ex, "Application {ClientId} not found. Verify the ClientId configuration.", clientId);
+            throw new InvalidOperationException(
+                $"App Registration with ClientId {clientId} not found. " +
+                "Verify AzureAd:ClientId is set to the Application (client) ID from the App Registration overview.",
+                ex);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to upload certificate to Azure AD");
+            _logger.LogError(ex, "Unexpected error uploading certificate to Azure AD. Type: {ExceptionType}", ex.GetType().Name);
             throw;
         }
     }
