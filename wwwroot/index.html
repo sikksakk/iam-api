@@ -133,9 +133,13 @@
 
         .job-form {
             display: grid;
-            grid-template-columns: 1fr 1fr auto;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 12px;
             margin-bottom: 24px;
+        }
+
+        .job-form button {
+            grid-column: 1 / -1;
         }
 
         .job-form input,
@@ -274,14 +278,19 @@
         <div class="section">
             <h2>Create New Job</h2>
             <form id="jobForm" class="job-form">
-                <input type="text" id="customerName" placeholder="Customer Name" required>
+                <input type="text" id="jobName" placeholder="Job Name" required>
+                <input type="text" id="customer" placeholder="Customer" required>
+                <input type="text" id="scriptPath" placeholder="Script Path" required>
+                <input type="text" id="containerImage" placeholder="Container Image" required>
                 <select id="jobType" required>
                     <option value="">Select Job Type</option>
-                    <option value="usersync">User Sync</option>
-                    <option value="groupsync">Group Sync</option>
-                    <option value="audit">Audit</option>
-                    <option value="report">Report</option>
+                    <option value="0">One-Off</option>
+                    <option value="1">Scheduled</option>
                 </select>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="isWhatIf">
+                    WhatIf Mode
+                </label>
                 <button type="submit" class="btn-primary">Create Job</button>
             </form>
         </div>
@@ -415,11 +424,18 @@
         document.getElementById('jobForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const customerName = document.getElementById('customerName').value.trim();
-            const jobType = document.getElementById('jobType').value;
+            const jobData = {
+                name: document.getElementById('jobName').value.trim(),
+                customer: document.getElementById('customer').value.trim(),
+                scriptPath: document.getElementById('scriptPath').value.trim(),
+                containerImage: document.getElementById('containerImage').value.trim(),
+                jobType: parseInt(document.getElementById('jobType').value),
+                isWhatIf: document.getElementById('isWhatIf').checked,
+                parameters: {}
+            };
 
-            if (!customerName || !jobType) {
-                alert('Please fill in all fields');
+            if (!jobData.name || !jobData.customer || !jobData.scriptPath || !jobData.containerImage || isNaN(jobData.jobType)) {
+                alert('Please fill in all required fields');
                 return;
             }
 
@@ -430,12 +446,16 @@
             try {
                 const response = await fetchWithAuth('/api/jobs', {
                     method: 'POST',
-                    body: JSON.stringify({ customerName, jobType })
+                    body: JSON.stringify(jobData)
                 });
 
                 if (response && response.ok) {
-                    document.getElementById('customerName').value = '';
+                    document.getElementById('jobName').value = '';
+                    document.getElementById('customer').value = '';
+                    document.getElementById('scriptPath').value = '';
+                    document.getElementById('containerImage').value = '';
                     document.getElementById('jobType').value = '';
+                    document.getElementById('isWhatIf').checked = false;
                     await loadJobs();
                     alert('Job created successfully!');
                 } else {
