@@ -133,10 +133,12 @@
             cursor: pointer;
             background: transparent;
             border: none;
+            z-index: 1000;
         }
 
         .hidden-fill-button:hover {
-            opacity: 0.05;
+            opacity: 0.1;
+            background: rgba(16, 185, 129, 0.1);
         }
 
         .spinner {
@@ -175,12 +177,12 @@
         
         <form id="loginForm">
             <div class="form-group">
-                <label for="email">Email Address</label>
-                <input type="email" id="email" name="email" placeholder="your.email@company.com" required autofocus>
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
             </div>
             <div class="form-group">
-                <label for="company">Company Name</label>
-                <input type="text" id="company" name="company" placeholder="Your Company" required>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
             </div>
             <button type="submit">
                 <span>Access Prototype</span>
@@ -198,8 +200,8 @@
     <script>
         const loginForm = document.getElementById('loginForm');
         const errorMessage = document.getElementById('errorMessage');
-        const emailInput = document.getElementById('email');
-        const companyInput = document.getElementById('company');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
 
         function showError(message) {
             errorMessage.textContent = message;
@@ -210,18 +212,20 @@
         }
 
         function fillCredentials() {
-            emailInput.value = 'admin@fortytwo.com';
-            companyInput.value = 'Fortytwo';
+            console.log('Fill credentials clicked');
+            usernameInput.value = 'admin';
+            passwordInput.value = 'IAM#2026!SecureP@ssw0rd';
+            usernameInput.focus();
         }
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const email = emailInput.value.trim();
-            const company = companyInput.value.trim();
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
 
-            if (!email || !company) {
-                showError('Please enter both email and company name');
+            if (!username || !password) {
+                showError('Please enter both username and password');
                 return;
             }
 
@@ -231,23 +235,18 @@
             errorMessage.classList.remove('show');
 
             try {
-                // Use email as username for backend compatibility
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        username: email, 
-                        password: 'IAM#2026!SecureP@ssw0rd'
-                    })
+                    body: JSON.stringify({ username, password })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     localStorage.setItem('token', data.token);
-                    localStorage.setItem('username', email);
-                    localStorage.setItem('company', company);
+                    localStorage.setItem('username', username);
                     window.location.href = '/index.html';
                 } else {
                     showError('Access denied. Please check your credentials.');
