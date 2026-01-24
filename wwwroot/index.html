@@ -220,6 +220,51 @@
             font-size: 0.875rem;
         }
 
+        .registry-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .registry-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .registry-item-info {
+            flex: 1;
+        }
+
+        .registry-item-name {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .registry-item-server {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -266,6 +311,23 @@
 
     <div class="container">
         <div class="section">
+            <h2>Container Registries</h2>
+            <form id="registryForm" class="job-form" style="margin-bottom: 20px;">
+                <input type="text" id="registryName" placeholder="Registry Name" required>
+                <input type="text" id="registryServer" placeholder="Server (e.g., ghcr.io)" required>
+                <input type="text" id="registryUsername" placeholder="Username" required>
+                <input type="password" id="registryPassword" placeholder="Password" required>
+                <button type="submit" class="btn-primary">Add Registry</button>
+            </form>
+            <div id="registriesContainer">
+                <div class="loading">
+                    <span class="spinner"></span>
+                    Loading registries...
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
             <h2>Active Orchestrators</h2>
             <div id="orchestratorsContainer">
                 <div class="loading">
@@ -282,6 +344,12 @@
                 <input type="text" id="customer" placeholder="Customer" required>
                 <input type="text" id="scriptPath" placeholder="Script Path" required>
                 <input type="text" id="containerImage" placeholder="Container Image" required>
+                <select id="registrySelect">
+                    <option value="">Select Registry (optional)</option>
+                </select>
+                <input type="text" id="customRegistryServer" placeholder="Or Custom Registry Server">
+                <input type="text" id="customRegistryUsername" placeholder="Custom Username">
+                <input type="password" id="customRegistryPassword" placeholder="Custom Password">
                 <select id="jobType" required>
                     <option value="">Select Job Type</option>
                     <option value="0">One-Off</option>
@@ -377,6 +445,108 @@
             }
         }
 
+        let registriesCache = [];
+
+        async function loadRegistries() {
+            try {
+                const response = await fetchWithAuth('/api/registries');
+                if (!response) return;
+
+                registriesCache = await response.json();
+                const container = document.getElementById('registriesContainer');
+                const select = document.getElementById('registrySelect');
+
+                // Update list view
+                if (!registriesCache || registriesCache.length === 0) {
+                    container.innerHTML = '<div class="no-data">No registries configured</div>';
+                } else {
+                    container.innerHTML = `
+                        <div class="registry-list">
+                            ${registriesCache.map(reg => `
+                                <div class="registry-item">
+                                    <div class="registry-item-info">
+                                        <div class="registry-item-name">${reg.name}</div>
+                                        <div class="registry-item-server">${reg.server} (${reg.username})</div>
+                                    </div>
+                                    <button class="btn-delete" onclick="deleteRegistry('${reg.id}')">Delete</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                // Update dropdown
+                select.innerHTML = '<option value="">Select Registry (optional)</option>' +
+                    registriesCache.map(reg => `<option value="${reg.id}">${reg.name}</option>`).join('');
+
+            } catch (error) {
+                console.error('Error loading registries:', error);
+                document.getElementById('registriesContainer').innerHTML = 
+                    '<div class="no-data">Error loading registries</div>';
+            }
+        }
+
+        async function deleteRegistry(id) {
+            if (!confirm('Are you sure you want to delete this registry?')) return;
+
+            try {
+                const response = await fetchWithAuth(`/api/registries/${id}`, { method: 'DELETE' });
+                if (response && (response.ok || response.status === 204)) {
+                    await loadRegistries();
+                } else {
+                    alert('Failed to delete registry');
+                }
+            } catch (error) {
+                console.error('Error deleting registry:', error);
+                alert('Error deleting registry');
+            }
+        }
+
+        document.getElementById('registryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const registryData = {
+                name: document.getElementById('registryName').value.trim(),
+                server: document.getElementById('registryServer').value.trim(),
+                username: document.getElementById('registryUsername').value.trim(),
+                password: document.getElementById('registryPassword').value
+            };
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Adding...';
+
+            try {
+                const response = await fetchWithAuth('/api/registries', {
+                    method: 'POST',
+                    body: JSON.stringify(registryData)
+                });
+
+                if (response && response.ok) {
+                    document.getElementById('registryName').value = '';
+                    document.getElementById('registryServer').value = '';
+                    document.getElementById('registryUsername').value = '';
+                    document.getElementById('registryPassword').value = '';
+                    await loadRegistries();
+                    alert('Registry added successfully!');
+                } else {
+                    alert('Failed to add registry');
+                }
+            } catch (error) {
+                console.error('Error adding registry:', error);
+                alert('Error adding registry');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Registry';
+            }
+        });
+            } catch (error) {
+                console.error('Error loading orchestrators:', error);
+                document.getElementById('orchestratorsContainer').innerHTML = 
+                    '<div class="no-data">Error loading orchestrators</div>';
+            }
+        }
+
         async function loadJobs() {
             try {
                 const response = await fetchWithAuth('/api/jobs');
@@ -424,6 +594,21 @@
         document.getElementById('jobForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            const selectedRegistryId = document.getElementById('registrySelect').value;
+            let registryServer = document.getElementById('customRegistryServer').value.trim();
+            let registryUsername = document.getElementById('customRegistryUsername').value.trim();
+            let registryPassword = document.getElementById('customRegistryPassword').value;
+
+            // If registry is selected from dropdown, use those credentials
+            if (selectedRegistryId) {
+                const selectedRegistry = registriesCache.find(r => r.id === selectedRegistryId);
+                if (selectedRegistry) {
+                    registryServer = selectedRegistry.server;
+                    registryUsername = selectedRegistry.username;
+                    registryPassword = selectedRegistry.password;
+                }
+            }
+
             const jobData = {
                 name: document.getElementById('jobName').value.trim(),
                 customer: document.getElementById('customer').value.trim(),
@@ -433,6 +618,13 @@
                 isWhatIf: document.getElementById('isWhatIf').checked,
                 parameters: {}
             };
+
+            // Add registry credentials if provided
+            if (registryServer) {
+                jobData.registryServer = registryServer;
+                jobData.registryUsername = registryUsername;
+                jobData.registryPassword = registryPassword;
+            }
 
             if (!jobData.name || !jobData.customer || !jobData.scriptPath || !jobData.containerImage || isNaN(jobData.jobType)) {
                 alert('Please fill in all required fields');
@@ -456,6 +648,10 @@
                     document.getElementById('containerImage').value = '';
                     document.getElementById('jobType').value = '';
                     document.getElementById('isWhatIf').checked = false;
+                    document.getElementById('registrySelect').value = '';
+                    document.getElementById('customRegistryServer').value = '';
+                    document.getElementById('customRegistryUsername').value = '';
+                    document.getElementById('customRegistryPassword').value = '';
                     await loadJobs();
                     alert('Job created successfully!');
                 } else {
@@ -471,6 +667,7 @@
         });
 
         // Initial load
+        loadRegistries();
         loadOrchestrators();
         loadJobs();
 

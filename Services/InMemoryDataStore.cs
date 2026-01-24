@@ -8,6 +8,7 @@ public class InMemoryDataStore : IDataStore
     private readonly ConcurrentDictionary<Guid, Job> _jobs = new();
     private readonly ConcurrentBag<LogEntry> _logs = new();
     private readonly ConcurrentDictionary<string, Orchestrator> _orchestrators = new();
+    private readonly ConcurrentDictionary<Guid, ContainerRegistry> _registries = new();
 
     // Jobs
     public Job AddJob(Job job)
@@ -121,5 +122,27 @@ public class InMemoryDataStore : IDataStore
     public void RemoveOrchestrator(string id)
     {
         _orchestrators.TryRemove(id, out _);
+    }
+    
+    // Container Registries
+    public IEnumerable<ContainerRegistry> GetRegistries()
+    {
+        return _registries.Values.OrderBy(r => r.Name);
+    }
+
+    public ContainerRegistry? GetRegistry(Guid id)
+    {
+        _registries.TryGetValue(id, out var registry);
+        return registry;
+    }
+
+    public void AddRegistry(ContainerRegistry registry)
+    {
+        _registries[registry.Id] = registry;
+    }
+
+    public void RemoveRegistry(Guid id)
+    {
+        _registries.TryRemove(id, out _);
     }
 }

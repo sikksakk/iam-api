@@ -22,4 +22,10 @@ public interface IDataStore
     IEnumerable<Orchestrator> GetOrchestrators();
     void UpsertOrchestrator(Orchestrator orchestrator);
     void RemoveOrchestrator(string id);
+    
+    // Container Registries
+    IEnumerable<ContainerRegistry> GetRegistries();
+    ContainerRegistry? GetRegistry(Guid id);
+    void AddRegistry(ContainerRegistry registry);
+    void RemoveRegistry(Guid id);
 }
