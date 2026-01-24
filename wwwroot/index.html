@@ -393,21 +393,26 @@
         }
 
         async function fetchWithAuth(url, options = {}) {
-            const response = await fetch(url, {
-                ...options,
-                headers: {
-                    ...options.headers,
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...options.headers,
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-            if (response.status === 401) {
-                logout();
+                if (response.status === 401) {
+                    logout();
+                    return null;
+                }
+
+                return response;
+            } catch (error) {
+                console.error('Fetch error:', error);
                 return null;
             }
-
-            return response;
         }
 
         async function loadOrchestrators() {
@@ -448,11 +453,18 @@
         let registriesCache = [];
 
         async function loadRegistries() {
+            console.log('Loading registries...');
             try {
                 const response = await fetchWithAuth('/api/registries');
-                if (!response) return;
+                if (!response) {
+                    console.error('No response from registries API');
+                    document.getElementById('registriesContainer').innerHTML = 
+                        '<div class="no-data">Unable to connect to server</div>';
+                    return;
+                }
 
                 registriesCache = await response.json();
+                console.log('Loaded registries:', registriesCache);
                 const container = document.getElementById('registriesContainer');
                 const select = document.getElementById('registrySelect');
 
@@ -482,7 +494,7 @@
             } catch (error) {
                 console.error('Error loading registries:', error);
                 document.getElementById('registriesContainer').innerHTML = 
-                    '<div class="no-data">Error loading registries</div>';
+                    '<div class="no-data">Error loading registries: ' + error.message + '</div>';
             }
         }
 
@@ -540,12 +552,6 @@
                 submitBtn.textContent = 'Add Registry';
             }
         });
-            } catch (error) {
-                console.error('Error loading orchestrators:', error);
-                document.getElementById('orchestratorsContainer').innerHTML = 
-                    '<div class="no-data">Error loading orchestrators</div>';
-            }
-        }
 
         async function loadJobs() {
             try {
