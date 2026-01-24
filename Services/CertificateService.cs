@@ -37,6 +37,10 @@ public class CertificateService : ICertificateService
                 _logger.LogDebug("Creating ManagedIdentityCredential instance");
                 var credential = new ManagedIdentityCredential();
                 
+                // Test token acquisition before creating Graph client
+                _logger.LogDebug("Testing managed identity token acquisition...");
+                TestManagedIdentityTokenAsync(credential).GetAwaiter().GetResult();
+                
                 _logger.LogDebug("Creating GraphServiceClient with credential");
                 _graphClient = new GraphServiceClient(credential);
                 
@@ -103,6 +107,33 @@ public class CertificateService : ICertificateService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to log managed identity environment variables");
+        }
+    }
+
+    private async Task TestManagedIdentityTokenAsync(ManagedIdentityCredential credential)
+    {
+        try
+        {
+            var scopes = new[] { "https://graph.microsoft.com/.default" };
+            _logger.LogDebug("Requesting token for scopes: {Scopes}", string.Join(", ", scopes));
+            
+            var tokenRequestContext = new Azure.Core.TokenRequestContext(scopes);
+            var tokenResult = await credential.GetTokenAsync(tokenRequestContext, default);
+            
+            _logger.LogInformation("✓ Managed identity token acquired successfully");
+            _logger.LogDebug("Token expires at: {ExpiresOn} (UTC)", tokenResult.ExpiresOn.UtcDateTime);
+            _logger.LogDebug("Token length: {Length} characters", tokenResult.Token.Length);
+        }
+        catch (Azure.Identity.AuthenticationFailedException ex)
+        {
+            _logger.LogError(ex, "✗ Failed to acquire managed identity token");
+            _logger.LogError("This usually means: 1) Managed Identity not enabled, 2) Wrong identity assigned, or 3) Token endpoint issue");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "✗ Unexpected error during token acquisition test");
+            throw;
         }
     }
 
@@ -302,14 +333,18 @@ public class CertificateService : ICertificateService
 
             _logger.LogDebug("Fetching application {ClientId} from Azure AD", clientId);
             _logger.LogDebug("Making Graph API call: GET /applications/{ClientId}", clientId);
+            _logger.LogDebug("Required Graph API permission: Application.ReadWrite.All");
+            _logger.LogDebug("Graph API endpoint: https://graph.microsoft.com/v1.0/applications/{ClientId}", clientId);
             
             // Get current application
-            var application = await graphClient.Applications[clientId].GetAsync();
-            
-            _logger.LogDebug("Graph API call successful. Application retrieved: {AppId}", application?.AppId);
-            
-            if (application == null)
+            try
             {
+                var application = await graphClient.Applications[clientId].GetAsync();
+            
+                _logger.LogDebug("Graph API call successful. Application retrieved: {AppId}", application?.AppId);
+            
+                if (application == null)
+                {
                 _logger.LogError("Application {ClientId} not found in Azure AD", clientId);
                 throw new InvalidOperationException($"Application {clientId} not found. Verify the ClientId is correct (use Application/Client ID, not Object ID).");
             }
@@ -328,9 +363,15 @@ public class CertificateService : ICertificateService
             _logger.LogDebug("Updating application in Azure AD");
             await graphClient.Applications[clientId].PatchAsync(application);
 
-            _logger.LogInformation("Certificate uploaded to Azure AD for app {ClientId}", clientId);
+                _logger.LogInformation("Certificate uploaded to Azure AD for app {ClientId}", clientId);
             
-            return keyCredential.KeyId?.ToString() ?? Guid.NewGuid().ToString();
+                return keyCredential.KeyId?.ToString() ?? Guid.NewGuid().ToString();
+            }
+            catch (Exception graphEx)
+            {
+                _logger.LogError(graphEx, "Graph API call failed. Type: {Type}", graphEx.GetType().Name);
+                throw;
+            }
         }
         catch (InvalidOperationException)
         {

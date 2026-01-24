@@ -95,6 +95,65 @@ app.MapControllers();
 
 app.MapGet("/healthz", () => Results.Ok("ok"));
 
+// Managed Identity diagnostics endpoint
+app.MapGet("/debug/managed-identity", async (ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation("Managed Identity diagnostic check requested");
+        
+        var diagnostics = new Dictionary<string, object?>
+        {
+            ["timestamp"] = DateTime.UtcNow,
+            ["environment"] = new Dictionary<string, string?>
+            {
+                ["IDENTITY_ENDPOINT"] = Environment.GetEnvironmentVariable("IDENTITY_ENDPOINT"),
+                ["IDENTITY_HEADER"] = Environment.GetEnvironmentVariable("IDENTITY_HEADER") != null ? "[SET]" : null,
+                ["MSI_ENDPOINT"] = Environment.GetEnvironmentVariable("MSI_ENDPOINT"),
+                ["MSI_SECRET"] = Environment.GetEnvironmentVariable("MSI_SECRET") != null ? "[SET]" : null,
+                ["AZURE_CLIENT_ID"] = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID"),
+                ["AZURE_TENANT_ID"] = Environment.GetEnvironmentVariable("AZURE_TENANT_ID"),
+                ["CONTAINER_APP_NAME"] = Environment.GetEnvironmentVariable("CONTAINER_APP_NAME"),
+                ["CONTAINER_APP_REVISION"] = Environment.GetEnvironmentVariable("CONTAINER_APP_REVISION")
+            }
+        };
+        
+        // Test token acquisition
+        try
+        {
+            logger.LogDebug("Testing managed identity token acquisition...");
+            var credential = new Azure.Identity.ManagedIdentityCredential();
+            var tokenContext = new Azure.Core.TokenRequestContext(new[] { "https://graph.microsoft.com/.default" });
+            var token = await credential.GetTokenAsync(tokenContext, default);
+            
+            diagnostics["token_test"] = new
+            {
+                success = true,
+                expires_at = token.ExpiresOn.UtcDateTime,
+                token_length = token.Token.Length
+            };
+            logger.LogInformation("✓ Token acquired successfully");
+        }
+        catch (Exception ex)
+        {
+            diagnostics["token_test"] = new
+            {
+                success = false,
+                error = ex.GetType().Name,
+                message = ex.Message
+            };
+            logger.LogError(ex, "✗ Token acquisition failed");
+        }
+        
+        return Results.Json(diagnostics);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Diagnostic check failed");
+        return Results.Problem(ex.Message);
+    }
+});
+
 // Default route to redirect to login
 app.MapGet("/", () => Results.Redirect("/login.html"));
 
