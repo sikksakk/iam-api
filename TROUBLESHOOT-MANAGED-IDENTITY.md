@@ -41,12 +41,12 @@ az identity show \
 az containerapp update \
   --name iam-api \
   --resource-group <your-resource-group> \
-  --set-env-vars "AzureAd__ManagedIdentityClientId=<client-id-from-above>"
+  --set-env-vars "EntraId__ManagedIdentityClientId=<client-id-from-above>"
 ```
 
 Or set it in `appsettings.json`:
 ```json
-"AzureAd": {
+"EntraId": {
   "ManagedIdentityClientId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 }
 ```
@@ -227,7 +227,7 @@ If the issue persists, contact Azure Support with:
 
 **For User-Assigned Managed Identity (most common):**
 - [ ] Get user-assigned identity client ID: `az identity show --name <name> --resource-group <rg> --query clientId -o tsv`
-- [ ] Set in Container App: `az containerapp update --name iam-api --resource-group <rg> --set-env-vars "AzureAd__ManagedIdentityClientId=<client-id>"`
+- [ ] Set in Container App: `az containerapp update --name iam-api --resource-group <rg> --set-env-vars "EntraId__ManagedIdentityClientId=<client-id>"`
 - [ ] Verify identity is assigned to Container App: `az containerapp identity show --name iam-api --resource-group <rg>`
 - [ ] Get principal ID and grant Graph API permissions (see section 5 above)
 

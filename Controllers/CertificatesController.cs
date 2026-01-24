@@ -42,7 +42,7 @@ public class CertificatesController : ControllerBase
             return StatusCode(500, new 
             { 
                 error = "Failed to create certificate",
-                message = "Certificate creation failed. This may be due to missing Azure AD configuration (AzureAd:ClientId, AzureAd:TenantId) or insufficient permissions. Check API logs for details."
+                message = "Certificate creation failed. This may be due to missing Entra ID configuration (EntraId:ClientId, EntraId:TenantId) or insufficient permissions. Check API logs for details."
             });
         }
 

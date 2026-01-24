@@ -31,7 +31,7 @@ The IAM system now includes automatic certificate management with Azure Managed 
 
 ```json
 {
-  "AzureAd": {
+  "EntraId": {
     "TenantId": "your-tenant-id",
     "ClientId": "your-app-registration-id",
     "CertificateValidityHours": 2
@@ -39,11 +39,11 @@ The IAM system now includes automatic certificate management with Azure Managed 
 }
 ```
 
-**Environment Variables (Azure Container Apps):**
+Or via environment variables:
 ```bash
-AzureAd__TenantId=your-tenant-id
-AzureAd__ClientId=your-app-registration-id
-AzureAd__CertificateValidityHours=2
+EntraId__TenantId=your-tenant-id
+EntraId__ClientId=your-app-registration-id
+EntraId__CertificateValidityHours=2
 ```
 
 ### Azure Setup Requirements

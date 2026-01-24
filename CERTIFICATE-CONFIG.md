@@ -1,6 +1,6 @@
 # Certificate Management Configuration Guide
 
-## Problem: "AzureAd:ClientId not configured" Warning
+## Problem: "EntraId:ClientId not configured" Warning
 
 If you see this warning, certificate management is disabled. Follow these steps to configure it:
 
@@ -82,9 +82,9 @@ az containerapp update \
   --name your-iam-api-app \
   --resource-group your-resource-group \
   --set-env-vars \
-    "AzureAd__TenantId=your-tenant-id" \
-    "AzureAd__ClientId=your-client-id" \
-    "AzureAd__CertificateValidityHours=2"
+    "EntraId__TenantId=your-tenant-id" \
+    "EntraId__ClientId=your-client-id" \
+    "EntraId__CertificateValidityHours=2"
 ```
 
 ## Local Development Configuration

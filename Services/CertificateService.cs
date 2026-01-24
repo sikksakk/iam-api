@@ -34,7 +34,7 @@ public class CertificateService : ICertificateService
                 LogManagedIdentityEnvironment();
                 
                 // Check for user-assigned managed identity configuration
-                var managedIdentityClientId = _configuration["AzureAd:ManagedIdentityClientId"];
+                var managedIdentityClientId = _configuration["EntraId:ManagedIdentityClientId"];
                 
                 ManagedIdentityCredential credential;
                 if (!string.IsNullOrEmpty(managedIdentityClientId))
@@ -216,24 +216,26 @@ public class CertificateService : ICertificateService
     {
         try
         {
-            var validityHours = _configuration.GetValue("AzureAd:CertificateValidityHours", 2);
-            var clientId = _configuration["AzureAd:ClientId"];
-            var tenantId = _configuration["AzureAd:TenantId"];
+            var validityHours = _configuration.GetValue("EntraId:CertificateValidityHours", 2);
+            var clientId = _configuration["EntraId:ClientId"];
+            var applicationObjectId = _configuration["EntraId:ApplicationObjectId"];
+            var tenantId = _configuration["EntraId:TenantId"];
             
-            _logger.LogDebug("Configuration check - ClientId: {ClientId}, TenantId: {TenantId}, ValidityHours: {Hours}",
+            _logger.LogDebug("Configuration check - ClientId: {ClientId}, ApplicationObjectId: {ObjectId}, TenantId: {TenantId}, ValidityHours: {Hours}",
                 string.IsNullOrEmpty(clientId) ? "[NOT SET]" : $"{clientId.Substring(0, Math.Min(8, clientId.Length))}...",
+                string.IsNullOrEmpty(applicationObjectId) ? "[NOT SET]" : $"{applicationObjectId.Substring(0, Math.Min(8, applicationObjectId.Length))}...",
                 string.IsNullOrEmpty(tenantId) ? "[NOT SET]" : $"{tenantId.Substring(0, Math.Min(8, tenantId.Length))}...",
                 validityHours);
             
-            if (string.IsNullOrEmpty(clientId))
+            if (string.IsNullOrEmpty(applicationObjectId))
             {
-                _logger.LogError("AzureAd:ClientId not configured. Certificate management requires Azure AD configuration. Set AzureAd:ClientId and AzureAd:TenantId in configuration.");
+                _logger.LogError("EntraId:ApplicationObjectId not configured. This is the Object ID from the App Registration overview page (not the Application/Client ID). Set EntraId:ApplicationObjectId in configuration.");
                 return null;
             }
             
             if (string.IsNullOrEmpty(tenantId))
             {
-                _logger.LogWarning("AzureAd:TenantId not configured, but will attempt to proceed");
+                _logger.LogWarning("EntraId:TenantId not configured, but will attempt to proceed");
             }
 
             _logger.LogInformation("Creating new certificate for customer: {Customer}", customerName);
@@ -249,8 +251,8 @@ public class CertificateService : ICertificateService
             _logger.LogDebug("Certificate generated - Thumbprint: {Thumbprint}, Size: {Size} bytes", thumbprint, pfxBytes.Length);
 
             // Upload to Azure AD App Registration
-            _logger.LogDebug("Attempting to upload certificate to Azure AD for ClientId: {ClientId}", clientId);
-            var keyId = await UploadCertificateToAzureAsync(clientId, certificate);
+            _logger.LogDebug("Attempting to upload certificate to Azure AD for Application Object ID: {ObjectId}", applicationObjectId);
+            var keyId = await UploadCertificateToAzureAsync(applicationObjectId, certificate);
             _logger.LogDebug("Certificate uploaded successfully with KeyId: {KeyId}", keyId);
 
             // Store certificate
@@ -328,7 +330,7 @@ public class CertificateService : ICertificateService
         return (pfxBytes, thumbprint, certificate);
     }
 
-    private async Task<string> UploadCertificateToAzureAsync(string clientId, X509Certificate2 certificate)
+    private async Task<string> UploadCertificateToAzureAsync(string applicationObjectId, X509Certificate2 certificate)
     {
         try
         {
@@ -345,47 +347,47 @@ public class CertificateService : ICertificateService
                 EndDateTime = certificate.NotAfter.ToUniversalTime()
             };
 
-            _logger.LogDebug("Fetching application {ClientId} from Azure AD", clientId);
-            _logger.LogDebug("Making Graph API call: GET /applications/{ClientId}", clientId);
+            _logger.LogDebug("Fetching application by Object ID: {ObjectId} from Azure AD", applicationObjectId);
+            _logger.LogDebug("Making Graph API call: GET /applications/{ObjectId}", applicationObjectId);
             _logger.LogDebug("Required Graph API permission: Application.ReadWrite.All");
-            _logger.LogDebug("Graph API endpoint: https://graph.microsoft.com/v1.0/applications/{ClientId}", clientId);
+            _logger.LogDebug("Graph API endpoint: https://graph.microsoft.com/v1.0/applications/{ObjectId}", applicationObjectId);
             
             // Get current application
             try
             {
-                var application = await graphClient.Applications[clientId].GetAsync();
+                var application = await graphClient.Applications[applicationObjectId].GetAsync();
             
                 _logger.LogDebug("Graph API call successful. Application retrieved: {AppId}", application?.AppId);
             
                 if (application == null)
                 {
-                _logger.LogError("Application {ClientId} not found in Azure AD", clientId);
-                throw new InvalidOperationException($"Application {clientId} not found. Verify the ClientId is correct (use Application/Client ID, not Object ID).");
-            }
-            
-            if (application.KeyCredentials == null)
-            {
-                application.KeyCredentials = new List<KeyCredential>();
-            }
+                    _logger.LogError("Application with Object ID {ObjectId} not found in Azure AD", applicationObjectId);
+                    throw new InvalidOperationException($"Application with Object ID {applicationObjectId} not found. Verify EntraId:ApplicationObjectId is set to the Object ID (not Application/Client ID) from the App Registration overview.");
+                }
+                
+                if (application.KeyCredentials == null)
+                {
+                    application.KeyCredentials = new List<KeyCredential>();
+                }
 
-            _logger.LogDebug("Adding certificate to application. Current certificates: {Count}", application.KeyCredentials.Count);
+                _logger.LogDebug("Adding certificate to application. Current certificates: {Count}", application.KeyCredentials.Count);
             
             // Add new certificate
             application.KeyCredentials.Add(keyCredential);
 
             // Update application
             _logger.LogDebug("Updating application in Azure AD");
-            await graphClient.Applications[clientId].PatchAsync(application);
+            await graphClient.Applications[applicationObjectId].PatchAsync(application);
 
-                _logger.LogInformation("Certificate uploaded to Azure AD for app {ClientId}", clientId);
+            _logger.LogInformation("Certificate uploaded to Azure AD for app with Object ID {ObjectId}", applicationObjectId);
             
-                return keyCredential.KeyId?.ToString() ?? Guid.NewGuid().ToString();
-            }
-            catch (Exception graphEx)
-            {
-                _logger.LogError(graphEx, "Graph API call failed. Type: {Type}", graphEx.GetType().Name);
-                throw;
-            }
+            return keyCredential.KeyId?.ToString() ?? Guid.NewGuid().ToString();
+        }
+        catch (Exception graphEx)
+        {
+            _logger.LogError(graphEx, "Graph API call failed. Type: {Type}", graphEx.GetType().Name);
+            throw;
+        }
         }
         catch (InvalidOperationException)
         {
@@ -409,10 +411,10 @@ public class CertificateService : ICertificateService
         }
         catch (Microsoft.Graph.Models.ODataErrors.ODataError ex) when (ex.ResponseStatusCode == 404)
         {
-            _logger.LogError(ex, "Application {ClientId} not found. Verify the ClientId configuration.", clientId);
+            _logger.LogError(ex, "Application with Object ID {ObjectId} not found. Verify the ApplicationObjectId configuration.", applicationObjectId);
             throw new InvalidOperationException(
-                $"App Registration with ClientId {clientId} not found. " +
-                "Verify AzureAd:ClientId is set to the Application (client) ID from the App Registration overview.",
+                $"App Registration with Object ID {applicationObjectId} not found. " +
+                "Verify EntraId:ApplicationObjectId is set to the Object ID from the App Registration overview page (not the Application/Client ID).",
                 ex);
         }
         catch (Exception ex)
@@ -445,12 +447,12 @@ public class CertificateService : ICertificateService
             if (string.IsNullOrEmpty(keyId))
                 return;
 
-            var clientId = _configuration["AzureAd:ClientId"];
-            if (string.IsNullOrEmpty(clientId))
+            var applicationObjectId = _configuration["EntraId:ApplicationObjectId"];
+            if (string.IsNullOrEmpty(applicationObjectId))
                 return;
 
             var graphClient = GetGraphClient();
-            var application = await graphClient.Applications[clientId].GetAsync();
+            var application = await graphClient.Applications[applicationObjectId].GetAsync();
 
             if (application?.KeyCredentials != null)
             {
@@ -458,7 +460,7 @@ public class CertificateService : ICertificateService
                 if (keyToRemove != null)
                 {
                     application.KeyCredentials.Remove(keyToRemove);
-                    await graphClient.Applications[clientId].PatchAsync(application);
+                    await graphClient.Applications[applicationObjectId].PatchAsync(application);
                     _logger.LogInformation("Deleted certificate {KeyId} from Azure AD", keyId);
                 }
             }

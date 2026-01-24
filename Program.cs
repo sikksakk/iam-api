@@ -115,6 +115,10 @@ app.MapGet("/debug/managed-identity", async (ILogger<Program> logger) =>
                 ["AZURE_TENANT_ID"] = Environment.GetEnvironmentVariable("AZURE_TENANT_ID"),
                 ["CONTAINER_APP_NAME"] = Environment.GetEnvironmentVariable("CONTAINER_APP_NAME"),
                 ["CONTAINER_APP_REVISION"] = Environment.GetEnvironmentVariable("CONTAINER_APP_REVISION")
+            },
+            ["configuration"] = new Dictionary<string, string?>
+            {
+                ["EntraId:ManagedIdentityClientId"] = builder.Configuration["EntraId:ManagedIdentityClientId"]
             }
         };
         
