@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IAM Login</title>
+    <title>Identity Universe - IAM Portal</title>
     <style>
         * {
             margin: 0;
@@ -11,75 +11,130 @@
             box-sizing: border-box;
         }
 
+        @keyframes stars {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-2000px); }
+        }
+
+        @keyframes glow {
+            0%, 100% { text-shadow: 0 0 20px rgba(138, 43, 226, 0.8), 0 0 40px rgba(138, 43, 226, 0.5); }
+            50% { text-shadow: 0 0 30px rgba(138, 43, 226, 1), 0 0 60px rgba(138, 43, 226, 0.7); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(to bottom, #0a0e27 0%, #1a1f3a 50%, #2d1b4e 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, white, transparent),
+                radial-gradient(2px 2px at 60px 70px, white, transparent),
+                radial-gradient(1px 1px at 50px 50px, white, transparent),
+                radial-gradient(1px 1px at 130px 80px, white, transparent),
+                radial-gradient(2px 2px at 90px 10px, white, transparent);
+            background-size: 200px 200px;
+            animation: stars 100s linear infinite;
+            opacity: 0.5;
         }
 
         .login-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 25px 80px rgba(138, 43, 226, 0.4), 0 0 100px rgba(75, 0, 130, 0.3);
             overflow: hidden;
             width: 100%;
-            max-width: 420px;
-            animation: slideIn 0.5s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            max-width: 480px;
+            animation: float 6s ease-in-out infinite;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            position: relative;
+            z-index: 10;
         }
 
         .login-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #8a2be2 100%);
             color: white;
-            padding: 40px 30px;
+            padding: 50px 40px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-header::before {
+            content: '✨';
+            position: absolute;
+            font-size: 60px;
+            top: 10px;
+            left: 20px;
+            opacity: 0.3;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .login-header::after {
+            content: '🌟';
+            position: absolute;
+            font-size: 40px;
+            bottom: 20px;
+            right: 30px;
+            opacity: 0.3;
+            animation: float 5s ease-in-out infinite reverse;
         }
 
         .login-header h1 {
-            font-size: 2rem;
-            margin-bottom: 8px;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+            animation: glow 3s ease-in-out infinite;
         }
 
-        .login-header p {
-            opacity: 0.9;
-            font-size: 0.95rem;
+        .login-header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.95;
+            font-weight: 300;
+            letter-spacing: 0.5px;
         }
 
         .login-form {
-            padding: 40px 30px;
+            padding: 45px 40px;
         }
 
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 28px;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             color: #2c3e50;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            letter-spacing: 0.3px;
         }
 
         .form-group input {
             width: 100%;
-            padding: 14px 16px;
+            padding: 15px 18px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 1rem;
             transition: all 0.3s ease;
             background: #f8f9fa;
@@ -87,28 +142,30 @@
 
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #8a2be2;
             background: white;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 4px rgba(138, 43, 226, 0.1);
         }
 
         .login-button {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #8a2be2 100%);
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
+            border-radius: 10px;
+            font-size: 1.05rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.3s ease;
             margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .login-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 25px rgba(138, 43, 226, 0.5);
         }
 
         .login-button:active {
@@ -122,14 +179,14 @@
         }
 
         .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 12px 16px;
-            border-radius: 8px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            padding: 14px 18px;
+            border-radius: 10px;
             margin-bottom: 20px;
             display: none;
-            border-left: 4px solid #c33;
             font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
         }
 
         .error-message.show {
@@ -153,6 +210,7 @@
             cursor: pointer;
             background: transparent;
             border: none;
+            z-index: 5;
         }
 
         .hidden-fill-button:hover {
@@ -184,13 +242,22 @@
         .spinner {
             display: none;
         }
+
+        .disclaimer {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #95a5a6;
+            margin-top: 25px;
+            padding: 0 10px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="login-header">
-            <h1>🔐 IAM System</h1>
-            <p>Identity & Access Management</p>
+            <h1>Identity Universe</h1>
+            <p class="subtitle">Welcome to IAM Portal</p>
         </div>
         <div class="login-form">
             <div class="error-message" id="errorMessage"></div>
@@ -198,17 +265,22 @@
             <form id="loginForm">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+                    <input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" required autofocus>
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" autocomplete="current-password" required>
+                    <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
                 </div>
                 <button type="submit" class="login-button" id="loginButton">
-                    <span>Sign In</span>
+                    <span>Access Portal</span>
                     <div class="spinner"></div>
                 </button>
             </form>
+            
+            <div class="disclaimer">
+                By accessing this site, you agree to participate in testing and consent to the collection of behavioral analytics related to how the site is used.
+            </div>
+            
             <button class="hidden-fill-button" onclick="fillCredentials()" title="Fill default credentials"></button>
         </div>
     </div>
@@ -260,46 +332,27 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    
-                    // Store the JWT token
-                    localStorage.setItem('authToken', data.token);
-                    localStorage.setItem('username', data.username);
-                    localStorage.setItem('role', data.role);
-                    
-                    // Redirect to main application
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('username', username);
                     window.location.href = '/index.html';
                 } else {
                     const error = await response.json();
-                    showError(error.message || 'Invalid username or password');
+                    showError(error.message || 'Invalid credentials. Please try again.');
+                    loginButton.disabled = false;
+                    loginForm.classList.remove('loading');
                 }
             } catch (error) {
-                showError('Connection error. Please try again.');
                 console.error('Login error:', error);
-            } finally {
+                showError('Network error. Please check your connection and try again.');
                 loginButton.disabled = false;
                 loginForm.classList.remove('loading');
             }
         });
 
         // Check if already logged in
-        window.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                // Validate token
-                fetch('/api/auth/validate', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                }).then(response => {
-                    if (response.ok) {
-                        window.location.href = '/index.html';
-                    }
-                }).catch(() => {
-                    // Token invalid, stay on login page
-                    localStorage.clear();
-                });
-            }
-        });
+        if (localStorage.getItem('token')) {
+            window.location.href = '/index.html';
+        }
     </script>
 </body>
 </html>
