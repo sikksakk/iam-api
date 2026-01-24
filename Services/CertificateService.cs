@@ -30,8 +30,14 @@ public class CertificateService : ICertificateService
             {
                 _logger.LogDebug("Initializing Microsoft Graph client with Managed Identity");
                 
+                // Log environment variables for managed identity diagnostics
+                LogManagedIdentityEnvironment();
+                
                 // Use ManagedIdentityCredential specifically for Container Apps
+                _logger.LogDebug("Creating ManagedIdentityCredential instance");
                 var credential = new ManagedIdentityCredential();
+                
+                _logger.LogDebug("Creating GraphServiceClient with credential");
                 _graphClient = new GraphServiceClient(credential);
                 
                 _logger.LogInformation("Graph client initialized successfully with Managed Identity");
@@ -46,6 +52,58 @@ public class CertificateService : ICertificateService
             }
         }
         return _graphClient;
+    }
+
+    private void LogManagedIdentityEnvironment()
+    {
+        try
+        {
+            // Log key managed identity environment variables
+            var envVars = new Dictionary<string, string?>
+            {
+                ["IDENTITY_ENDPOINT"] = Environment.GetEnvironmentVariable("IDENTITY_ENDPOINT"),
+                ["IDENTITY_HEADER"] = Environment.GetEnvironmentVariable("IDENTITY_HEADER") != null ? "[SET]" : null,
+                ["MSI_ENDPOINT"] = Environment.GetEnvironmentVariable("MSI_ENDPOINT"),
+                ["MSI_SECRET"] = Environment.GetEnvironmentVariable("MSI_SECRET") != null ? "[SET]" : null,
+                ["AZURE_CLIENT_ID"] = Environment.GetEnvironmentVariable("AZURE_CLIENT_ID"),
+                ["AZURE_TENANT_ID"] = Environment.GetEnvironmentVariable("AZURE_TENANT_ID"),
+                ["AZURE_FEDERATED_TOKEN_FILE"] = Environment.GetEnvironmentVariable("AZURE_FEDERATED_TOKEN_FILE"),
+                ["IMDS_ENDPOINT"] = Environment.GetEnvironmentVariable("IMDS_ENDPOINT"),
+                ["CONTAINER_APP_NAME"] = Environment.GetEnvironmentVariable("CONTAINER_APP_NAME"),
+                ["CONTAINER_APP_REVISION"] = Environment.GetEnvironmentVariable("CONTAINER_APP_REVISION")
+            };
+
+            _logger.LogDebug("Managed Identity Environment Check:");
+            foreach (var kvp in envVars)
+            {
+                if (!string.IsNullOrEmpty(kvp.Value))
+                {
+                    _logger.LogDebug("  {Key}: {Value}", kvp.Key, kvp.Value);
+                }
+                else
+                {
+                    _logger.LogDebug("  {Key}: [NOT SET]", kvp.Key);
+                }
+            }
+
+            // Determine managed identity type
+            if (!string.IsNullOrEmpty(envVars["IDENTITY_ENDPOINT"]))
+            {
+                _logger.LogDebug("Detected: Azure Container Apps / App Service Managed Identity (IDENTITY_ENDPOINT)");
+            }
+            else if (!string.IsNullOrEmpty(envVars["MSI_ENDPOINT"]))
+            {
+                _logger.LogDebug("Detected: Legacy MSI Endpoint");
+            }
+            else
+            {
+                _logger.LogWarning("No managed identity endpoint detected. IDENTITY_ENDPOINT and MSI_ENDPOINT are both not set.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to log managed identity environment variables");
+        }
     }
 
     public async Task<CertificateResponse?> GetOrCreateCertificateAsync(string customerName)
@@ -117,8 +175,10 @@ public class CertificateService : ICertificateService
             var clientId = _configuration["AzureAd:ClientId"];
             var tenantId = _configuration["AzureAd:TenantId"];
             
-            _logger.LogDebug("Configuration check - ClientId: {HasClientId}, TenantId: {HasTenantId}, ValidityHours: {Hours}",
-                !string.IsNullOrEmpty(clientId), !string.IsNullOrEmpty(tenantId), validityHours);
+            _logger.LogDebug("Configuration check - ClientId: {ClientId}, TenantId: {TenantId}, ValidityHours: {Hours}",
+                string.IsNullOrEmpty(clientId) ? "[NOT SET]" : $"{clientId.Substring(0, Math.Min(8, clientId.Length))}...",
+                string.IsNullOrEmpty(tenantId) ? "[NOT SET]" : $"{tenantId.Substring(0, Math.Min(8, tenantId.Length))}...",
+                validityHours);
             
             if (string.IsNullOrEmpty(clientId))
             {
@@ -241,9 +301,12 @@ public class CertificateService : ICertificateService
             };
 
             _logger.LogDebug("Fetching application {ClientId} from Azure AD", clientId);
+            _logger.LogDebug("Making Graph API call: GET /applications/{ClientId}", clientId);
             
             // Get current application
             var application = await graphClient.Applications[clientId].GetAsync();
+            
+            _logger.LogDebug("Graph API call successful. Application retrieved: {AppId}", application?.AppId);
             
             if (application == null)
             {
@@ -300,6 +363,22 @@ public class CertificateService : ICertificateService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error uploading certificate to Azure AD. Type: {ExceptionType}", ex.GetType().Name);
+            _logger.LogError("Exception details - Message: {Message}", ex.Message);
+            if (ex.InnerException != null)
+            {
+                _logger.LogError("Inner exception type: {InnerType}, Message: {InnerMessage}", 
+                    ex.InnerException.GetType().FullName, ex.InnerException.Message);
+                
+                // Log MSAL specific details if available
+                if (ex.InnerException is Microsoft.Identity.Client.MsalServiceException msalEx)
+                {
+                    _logger.LogError("MSAL Error Code: {ErrorCode}", msalEx.ErrorCode);
+                    _logger.LogError("MSAL Correlation ID: {CorrelationId}", msalEx.CorrelationId);
+                    _logger.LogError("MSAL Status Code: {StatusCode}", msalEx.StatusCode);
+                    _logger.LogError("MSAL Response Body: {ResponseBody}", msalEx.ResponseBody);
+                    _logger.LogError("MSAL Claims: {Claims}", msalEx.Claims);
+                }
+            }
             throw;
         }
     }
