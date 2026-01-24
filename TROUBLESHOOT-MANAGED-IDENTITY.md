@@ -24,7 +24,45 @@ Based on your logs, the environment is correctly configured:
 
 ## Common Causes for 400 Error
 
-### 1. System-Assigned Managed Identity Not Enabled ⚠️
+### 1. User-Assigned Managed Identity Not Configured in Code ⚠️ **MOST COMMON**
+
+If you have a **user-assigned** managed identity, you MUST configure its Client ID in your app settings:
+
+**Get your user-assigned identity client ID:**
+```bash
+az identity show \
+  --name <your-identity-name> \
+  --resource-group <your-resource-group> \
+  --query clientId -o tsv
+```
+
+**Set it in your Container App environment variable:**
+```bash
+az containerapp update \
+  --name iam-api \
+  --resource-group <your-resource-group> \
+  --set-env-vars "AzureAd__ManagedIdentityClientId=<client-id-from-above>"
+```
+
+Or set it in `appsettings.json`:
+```json
+"AzureAd": {
+  "ManagedIdentityClientId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+```
+
+**Verify your identity assignment:**
+```bash
+az containerapp identity show \
+  --name iam-api \
+  --resource-group <your-resource-group>
+```
+
+If you see `userAssignedIdentities`, you have a user-assigned identity and MUST configure the `ManagedIdentityClientId`.
+
+### 2. System-Assigned Managed Identity Not Enabled
+
+**Only needed if using system-assigned identity (when `ManagedIdentityClientId` is NOT set)**
 
 **Check:**
 ```bash
@@ -44,9 +82,19 @@ az containerapp identity assign \
   --system-assigned
 ```
 
-### 2. Managed Identity Principal ID Not Retrieved
+### 3. Managed Identity Principal ID Not Retrieved
 
-**Get the Principal ID:**
+**Get the Principal ID (works for both user-assigned and system-assigned):**
+
+For **user-assigned** identity:
+```bash
+az identity show \
+  --name <your-identity-name> \
+  --resource-group <your-resource-group> \
+  --query principalId -o tsv
+```
+
+For **system-assigned** identity:
 ```bash
 az containerapp show \
   --name iam-api \
@@ -54,7 +102,7 @@ az containerapp show \
   --query identity.principalId -o tsv
 ```
 
-If this returns empty or null, the managed identity isn't fully configured.
+If either returns empty or null, the managed identity isn't fully configured.
 
 ### 3. Recent Deployment Without Identity Propagation
 
@@ -79,13 +127,25 @@ az containerapp update \
 Even if managed identity is enabled, it needs Graph API permissions:
 
 **Get the managed identity's principal ID:**
+
+For **user-assigned** identity:
+```bash
+PRINCIPAL_ID=$(az identity show \
+  --name <your-identity-name> \
+  --resource-group <your-resource-group> \
+  --query principalId -o tsv)
+
+echo "User-Assigned Managed Identity Principal ID: $PRINCIPAL_ID"
+```
+
+For **system-assigned** identity:
 ```bash
 PRINCIPAL_ID=$(az containerapp show \
   --name iam-api \
   --resource-group <your-resource-group> \
   --query identity.principalId -o tsv)
 
-echo "Managed Identity Principal ID: $PRINCIPAL_ID"
+echo "System-Assigned Managed Identity Principal ID: $PRINCIPAL_ID"
 ```
 
 **Grant Application.ReadWrite.All permission:**
@@ -165,11 +225,20 @@ If the issue persists, contact Azure Support with:
 
 ## Quick Fix Checklist
 
+**For User-Assigned Managed Identity (most common):**
+- [ ] Get user-assigned identity client ID: `az identity show --name <name> --resource-group <rg> --query clientId -o tsv`
+- [ ] Set in Container App: `az containerapp update --name iam-api --resource-group <rg> --set-env-vars "AzureAd__ManagedIdentityClientId=<client-id>"`
+- [ ] Verify identity is assigned to Container App: `az containerapp identity show --name iam-api --resource-group <rg>`
+- [ ] Get principal ID and grant Graph API permissions (see section 5 above)
+
+**For System-Assigned Managed Identity:**
 - [ ] Verify system-assigned managed identity is enabled
 - [ ] Confirm identity principal ID exists
 - [ ] Check if identity has Application.ReadWrite.All permission on Microsoft Graph
 - [ ] Wait 2-3 minutes after enabling identity
 - [ ] Restart the container app revision
+
+**General:**
 - [ ] Check Azure service health for Container Apps/Managed Identity
 - [ ] Verify subscription isn't experiencing issues
 

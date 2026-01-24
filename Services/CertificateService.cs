@@ -33,9 +33,23 @@ public class CertificateService : ICertificateService
                 // Log environment variables for managed identity diagnostics
                 LogManagedIdentityEnvironment();
                 
-                // Use ManagedIdentityCredential specifically for Container Apps
-                _logger.LogDebug("Creating ManagedIdentityCredential instance");
-                var credential = new ManagedIdentityCredential();
+                // Check for user-assigned managed identity configuration
+                var managedIdentityClientId = _configuration["AzureAd:ManagedIdentityClientId"];
+                
+                ManagedIdentityCredential credential;
+                if (!string.IsNullOrEmpty(managedIdentityClientId))
+                {
+                    _logger.LogInformation("Using USER-ASSIGNED Managed Identity with Client ID: {ClientId}", 
+                        $"{managedIdentityClientId.Substring(0, Math.Min(8, managedIdentityClientId.Length))}...");
+                    _logger.LogDebug("Creating ManagedIdentityCredential with specific client ID");
+                    credential = new ManagedIdentityCredential(managedIdentityClientId);
+                }
+                else
+                {
+                    _logger.LogInformation("Using SYSTEM-ASSIGNED Managed Identity (no ManagedIdentityClientId configured)");
+                    _logger.LogDebug("Creating ManagedIdentityCredential for system-assigned identity");
+                    credential = new ManagedIdentityCredential();
+                }
                 
                 // Test token acquisition before creating Graph client
                 _logger.LogDebug("Testing managed identity token acquisition...");
