@@ -23,9 +23,15 @@ public class LogsController : ControllerBase
     /// Get all logs, optionally filtered by job ID
     /// </summary>
     [HttpGet]
-    public ActionResult<IEnumerable<LogEntry>> GetLogs([FromQuery] Guid? jobId = null)
+    public ActionResult<IEnumerable<LogEntry>> GetLogs([FromQuery] Guid? jobId = null, [FromQuery] string? source = null)
     {
         var logs = _dataStore.GetLogs(jobId);
+        
+        if (!string.IsNullOrEmpty(source))
+        {
+            logs = logs.Where(l => l.Source?.Equals(source, StringComparison.OrdinalIgnoreCase) == true);
+        }
+        
         return Ok(logs);
     }
 

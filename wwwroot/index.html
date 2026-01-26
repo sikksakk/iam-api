@@ -730,19 +730,35 @@
         <div id="logs-tab" class="tab-content">
             <div class="section">
                 <h2>
-                    System Logs
+                    Container Output Logs
                     <div style="display: flex; gap: 8px;">
-                        <select id="logFilterJob" onchange="loadLogs()" style="font-size: 0.8rem; padding: 6px 12px;">
+                        <select id="logFilterJob" onchange="loadJobLogs()" style="font-size: 0.8rem; padding: 6px 12px;">
                             <option value="">All Jobs</option>
                         </select>
-                        <button class="btn-small primary" onclick="loadLogs()">🔄 Refresh</button>
-                        <button class="btn-small" onclick="clearLogsDisplay()">🗑️ Clear Display</button>
+                        <button class="btn-small primary" onclick="loadJobLogs()">🔄 Refresh</button>
+                        <button class="btn-small" onclick="clearLogsDisplay('jobLogsContainer')">🗑️ Clear Display</button>
                     </div>
                 </h2>
-                <div id="logsContainer" class="logs-container">
+                <div id="jobLogsContainer" class="logs-container">
                     <div class="loading">
                         <span class="spinner"></span>
-                        Loading logs...
+                        Loading container logs...
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>
+                    Orchestrator System Logs
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-small primary" onclick="loadSystemLogs()">🔄 Refresh</button>
+                        <button class="btn-small" onclick="clearLogsDisplay('systemLogsContainer')">🗑️ Clear Display</button>
+                    </div>
+                </h2>
+                <div id="systemLogsContainer" class="logs-container">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading system logs...
                     </div>
                 </div>
             </div>
@@ -890,7 +906,10 @@
             if (tabName === 'orchestrators') loadOrchestrators();
             if (tabName === 'jobs') loadJobs();
             if (tabName === 'registries') loadRegistries();
-            if (tabName === 'logs') loadLogs();
+            if (tabName === 'logs') {
+                loadJobLogs();
+                loadSystemLogs();
+            }
             if (tabName === 'certificates') loadCertificates();
         }
 
@@ -1075,20 +1094,20 @@
             `;
         }
 
-        // Load Logs
-        async function loadLogs() {
-            const container = document.getElementById('logsContainer');
+        // Load Job Container Logs (from executed containers)
+        async function loadJobLogs() {
+            const container = document.getElementById('jobLogsContainer');
             const jobFilter = document.getElementById('logFilterJob').value;
             
             try {
-                const url = jobFilter ? `/api/logs?jobId=${jobFilter}` : '/api/logs';
+                const url = jobFilter ? `/api/logs?jobId=${jobFilter}&source=container` : '/api/logs?source=container';
                 const response = await fetchWithAuth(url);
                 if (!response) return;
 
                 const logs = await response.json();
 
                 if (!logs || logs.length === 0) {
-                    container.innerHTML = '<div class="no-data" style="color: #9ca3af;">No logs available</div>';
+                    container.innerHTML = '<div class="no-data" style="color: #9ca3af;">No container logs available</div>';
                     return;
                 }
 
@@ -1111,13 +1130,52 @@
                 // Auto-scroll to bottom
                 container.scrollTop = container.scrollHeight;
             } catch (error) {
-                console.error('Error loading logs:', error);
-                container.innerHTML = '<div class="no-data" style="color: #ef4444;">Error loading logs</div>';
+                console.error('Error loading job logs:', error);
+                container.innerHTML = '<div class="no-data" style="color: #ef4444;">Error loading container logs</div>';
             }
         }
 
-        function clearLogsDisplay() {
-            document.getElementById('logsContainer').innerHTML = '<div class="no-data" style="color: #9ca3af;">Logs cleared. Click Refresh to reload.</div>';
+        // Load Orchestrator System Logs
+        async function loadSystemLogs() {
+            const container = document.getElementById('systemLogsContainer');
+            
+            try {
+                const url = '/api/logs?source=orchestrator';
+                const response = await fetchWithAuth(url);
+                if (!response) return;
+
+                const logs = await response.json();
+
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div class="no-data" style="color: #9ca3af;">No system logs available</div>';
+                    return;
+                }
+
+                container.innerHTML = logs.slice(-200).reverse().map(log => {
+                    const level = (log.level || 'info').toLowerCase();
+                    const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A';
+                    
+                    return `
+                        <div class="log-entry ${level}">
+                            <div>
+                                <span class="log-timestamp">${timestamp}</span>
+                                <span class="log-level ${level}">${level.toUpperCase()}</span>
+                            </div>
+                            <div class="log-message">${log.message || 'No message'}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Auto-scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                console.error('Error loading system logs:', error);
+                container.innerHTML = '<div class="no-data" style="color: #ef4444;">Error loading system logs</div>';
+            }
+        }
+
+        function clearLogsDisplay(containerId) {
+            document.getElementById(containerId).innerHTML = '<div class="no-data" style="color: #9ca3af;">Logs cleared. Click Refresh to reload.</div>';
         }
 
         // Load Certificates
@@ -1373,7 +1431,10 @@
         setInterval(() => {
             const activeTab = document.querySelector('.tab-content.active').id;
             if (activeTab === 'orchestrators-tab') loadOrchestrators();
-            if (activeTab === 'logs-tab') loadLogs();
+            if (activeTab === 'logs-tab') {
+                loadJobLogs();
+                loadSystemLogs();
+            }
         }, 10000);
     </script>
 </body>

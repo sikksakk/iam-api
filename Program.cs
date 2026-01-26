@@ -161,4 +161,22 @@ app.MapGet("/debug/managed-identity", async (ILogger<Program> logger) =>
 // Default route to redirect to login
 app.MapGet("/", () => Results.Redirect("/login.html"));
 
+// Cleanup expired certificates on startup
+using (var scope = app.Services.CreateScope())
+{
+    var certificateService = scope.ServiceProvider.GetRequiredService<ICertificateService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        logger.LogInformation("Performing certificate cleanup on startup...");
+        await certificateService.CleanupExpiredCertificatesAsync();
+        logger.LogInformation("Startup certificate cleanup completed");
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Failed to cleanup certificates on startup");
+    }
+}
+
 app.Run();
