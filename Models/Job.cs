@@ -19,6 +19,7 @@ public class Job
     public DateTime CreatedAt { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public DateTime? ScheduledFor { get; set; }
 }
 
 public enum JobStatus
@@ -31,6 +32,6 @@ public enum JobStatus
 
 public enum JobType
 {
-    OneOff,
-    Scheduled
+    Scheduled,
+    OneOff
 }

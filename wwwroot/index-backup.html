@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f3f4f6;
+            min-height: 100vh;
+        }
+
+        header {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px 32px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { font-size: 1.5rem; font-weight: 700; }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-name {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .tabs-container {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .tabs {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            gap: 4px;
+            padding: 0 32px;
+        }
+
+        .tab {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.875rem;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .tab.active {
+            background: #f3f4f6;
+            color: #10b981;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+
+        .section h2 {
+            font-size: 1.25rem;
+            color: #111827;
+            margin-bottom: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .btn-small {
+            background: #6b7280;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-small:hover {
+            background: #4b5563;
+        }
+
+        .btn-small.danger {
+            background: #ef4444;
+        }
+
+        .btn-small.danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-small.primary {
+            background: #10b981;
+        }
+
+        .btn-small.primary:hover {
+            background: #059669;
+        }
+
+        .orchestrators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+        }
+
+        .orchestrator-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .orchestrator-card.offline {
+            opacity: 0.6;
+            border-color: #fca5a5;
+        }
+
+        .orchestrator-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .orchestrator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .orchestrator-header h3 {
+            color: #111827;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+
+        .status-dot.offline {
+            background: #ef4444;
+        }
+
+        .detail {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin: 4px 0;
+        }
+
+        .detail strong {
+            color: #374151;
+        }
+
+        .logs-container {
+            max-height: 600px;
+            overflow-y: auto;
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-left: 3px solid #6b7280;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .log-entry.info {
+            border-left-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .log-entry.warning {
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .log-entry.error {
+            border-left-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .log-timestamp {
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+
+        .log-level {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .log-level.info { background: #3b82f6; color: white; }
+        .log-level.warning { background: #f59e0b; color: white; }
+        .log-level.error { background: #ef4444; color: white; }
+
+        .log-message {
+            color: #e5e7eb;
+            margin-top: 4px;
+        }
+
+        .log-job {
+            color: #10b981;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f9fafb;
+            color: #374151;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .table tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-running { background: #dbeafe; color: #1e40af; }
+        .status-completed { background: #d1fae5; color: #065f46; }
+        .status-failed { background: #fee2e2; color: #991b1b; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 50%;
+            border-top-color: #10b981;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .filter-bar input {
+            flex: 1;
+            max-width: 300px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 400px;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+            border-left: 4px solid #10b981;
+        }
+
+        .toast.success {
+            border-left-color: #10b981;
+        }
+
+        .toast.error {
+            border-left-color: #ef4444;
+        }
+
+        .toast.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .toast.info {
+            border-left-color: #3b82f6;
+        }
+
+        .toast-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .toast-message {
+            font-size: 0.8125rem;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 1.25rem;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .toast-close:hover {
+            color: #4b5563;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        /* Confirmation Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+
+        .modal-message {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .modal-btn.cancel {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .modal-btn.cancel:hover {
+            background: #e5e7eb;
+        }
+
+        .modal-btn.confirm {
+            background: #ef4444;
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal">
+            <div class="modal-title" id="confirmTitle">Confirm Action</div>
+            <div class="modal-message" id="confirmMessage">Are you sure?</div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="closeConfirm(false)">Cancel</button>
+                <button class="modal-btn confirm" onclick="closeConfirm(true)">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div class="header-content">
+            <h1>🌐 IAM Dashboard</h1>
+            <div class="user-info">
+                <span class="user-name" id="userDisplay"></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="tabs-container">
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('orchestrators')">📡 Orchestrators</button>
+            <button class="tab" onclick="showTab('jobs')">📋 Jobs</button>
+            <button class="tab" onclick="showTab('createjob')">➕ Create Job</button>
+            <button class="tab" onclick="showTab('registries')">📦 Registries</button>
+            <button class="tab" onclick="showTab('logs')">📄 Logs</button>
+            <button class="tab" onclick="showTab('certificates')">🔒 Certificates</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Orchestrators Tab -->
+        <div id="orchestrators-tab" class="tab-content active">
+            <div class="section">
+                <h2>
+                    Active Orchestrators
+                    <button class="btn-small danger" onclick="cleanupOrchestrators()">🗑️ Cleanup Offline</button>
+                </h2>
+                <div id="orchestratorsContainer">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading orchestrators...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs Tab -->
+        <div id="jobs-tab" class="tab-content">
+            <div class="section">
+                <h2>Recent Jobs</h2>
+                <div class="filter-bar">
+                    <input type="text" id="jobFilterCustomer" placeholder="Filter by customer..." oninput="filterJobs()">
+                    <select id="jobFilterStatus" onchange="filterJobs()">
+                        <option value="">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Running">Running</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Failed">Failed</option>
+                    </select>
+                    <button class="btn-small primary" onclick="loadJobs()">🔄 Refresh</button>
+                </div>
+                <div id="jobsContainer">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading jobs...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Job Tab -->
+        <div id="createjob-tab" class="tab-content">
+            <div class="section">
+                <h2>Create New Job</h2>
+                <form id="createJobForm" style="display: grid; gap: 16px; max-width: 800px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Job Name</label>
+                            <input type="text" id="newJobName" placeholder="e.g., Deploy-AzureResources" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Customer</label>
+                            <input type="text" id="newJobCustomer" placeholder="e.g., alpha" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Job Type</label>
+                            <select id="newJobType" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                                <option value="">Select Type</option>
+                                <option value="0">Scheduled</option>
+                                <option value="1">OneOff</option>
+                                <option value="2">Manual</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Registry</label>
+                            <select id="newJobRegistry" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                                <option value="">No Registry (Public Image)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Container Image</label>
+                        <input type="text" id="newJobImage" placeholder="e.g., ghcr.io/user/image:tag or mcr.microsoft.com/powershell:latest" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <small style="color: #6b7280; font-size: 0.75rem;">Full image path including registry and tag</small>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Script Path</label>
+                        <input type="text" id="newJobScript" placeholder="e.g., /scripts/deploy.ps1 or ./customer-scripts/setup.ps1" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <small style="color: #6b7280; font-size: 0.75rem;">Path to the script inside the container</small>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">
+                            <input type="checkbox" id="newJobWhatIf" style="margin-right: 8px;">
+                            WhatIf Mode (dry-run, no actual changes)
+                        </label>
+                    </div>
+
+                    <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: #374151;">Parameters (JSON)</label>
+                        <textarea id="newJobParameters" placeholder='{"param1": "value1", "param2": "value2"}' rows="4" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.8125rem; font-family: 'Courier New', monospace;"></textarea>
+                        <small style="color: #6b7280; font-size: 0.75rem;">Optional: JSON object with job parameters</small>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button type="submit" class="btn-primary" style="padding: 12px 24px;">Create Job</button>
+                        <button type="button" onclick="resetJobForm()" style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer;">Reset</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Registries Tab -->
+        <div id="registries-tab" class="tab-content">
+            <div class="section">
+                <h2>Container Registries</h2>
+                <form id="addRegistryForm" style="display: grid; gap: 12px; margin-bottom: 24px; max-width: 800px; background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h3 style="font-size: 1rem; color: #111827; margin-bottom: 8px;">Add New Registry</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <input type="text" id="registryName" placeholder="Registry Name (e.g., GitHub)" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <input type="text" id="registryServer" placeholder="Server (e.g., ghcr.io)" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <input type="text" id="registryUsername" placeholder="Username" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <input type="password" id="registryPassword" placeholder="Password / Token" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="padding: 10px;">➕ Add Registry</button>
+                </form>
+
+                <div id="registriesContainer">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading registries...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div id="logs-tab" class="tab-content">
+            <div class="section">
+                <h2>
+                    Container Output Logs
+                    <div style="display: flex; gap: 8px;">
+                        <select id="logFilterJob" onchange="loadJobLogs()" style="font-size: 0.8rem; padding: 6px 12px;">
+                            <option value="">All Jobs</option>
+                        </select>
+                        <button class="btn-small primary" onclick="loadJobLogs()">🔄 Refresh</button>
+                        <button class="btn-small" onclick="clearLogsDisplay('jobLogsContainer')">🗑️ Clear Display</button>
+                    </div>
+                </h2>
+                <div id="jobLogsContainer" class="logs-container">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading container logs...
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>
+                    Orchestrator System Logs
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-small primary" onclick="loadSystemLogs()">🔄 Refresh</button>
+                        <button class="btn-small" onclick="clearLogsDisplay('systemLogsContainer')">🗑️ Clear Display</button>
+                    </div>
+                </h2>
+                <div id="systemLogsContainer" class="logs-container">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading system logs...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Certificates Tab -->
+        <div id="certificates-tab" class="tab-content">
+            <div class="section">
+                <h2>
+                    Certificates
+                    <button class="btn-small primary" onclick="loadCertificates()">🔄 Refresh</button>
+                </h2>
+                <div id="certificatesContainer">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading certificates...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = localStorage.getItem('token');
+        let allJobs = [];
+
+        // Check authentication
+        if (!authToken) {
+            window.location.href = '/login.html';
+        }
+
+        // Display username
+        const username = localStorage.getItem('username');
+        if (username) {
+            document.getElementById('userDisplay').textContent = username;
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            window.location.href = '/login.html';
+        }
+
+        async function fetchWithAuth(url, options = {}) {
+            const headers = {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+
+            try {
+                const response = await fetch(url, { ...options, headers });
+                
+                if (response.status === 401) {
+                    logout();
+                    return null;
+                }
+
+                return response;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                return null;
+            }
+        }
+
+        // Toast Notifications
+        function showToast(message, type = 'success', title = '') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✓',
+                error: '✕',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+
+            const titles = {
+                success: title || 'Success',
+                error: title || 'Error',
+                warning: title || 'Warning',
+                info: title || 'Info'
+            };
+
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type]}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${titles[type]}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Confirmation Dialog
+        let confirmResolve;
+        function showConfirm(message, title = 'Confirm Action') {
+            return new Promise((resolve) => {
+                confirmResolve = resolve;
+                document.getElementById('confirmTitle').textContent = title;
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmModal').classList.add('active');
+            });
+        }
+
+        function closeConfirm(result) {
+            document.getElementById('confirmModal').classList.remove('active');
+            if (confirmResolve) {
+                confirmResolve(result);
+                confirmResolve = null;
+            }
+        }
+
+        // Tab switching
+        function showTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // If called programmatically, find the button manually
+                const allTabs = Array.from(document.querySelectorAll('.tab'));
+                const targetTab = allTabs.find(t => t.textContent.includes(tabName === 'orchestrators' ? '📡' : 
+                                                                           tabName === 'jobs' ? '📋' :
+                                                                           tabName === 'createjob' ? '➕' :
+                                                                           tabName === 'registries' ? '📦' :
+                                                                           tabName === 'logs' ? '📄' : '🔒'));
+                if (targetTab) targetTab.classList.add('active');
+            }
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+
+            // Load data for the active tab
+            if (tabName === 'orchestrators') loadOrchestrators();
+            if (tabName === 'jobs') loadJobs();
+            if (tabName === 'registries') loadRegistries();
+            if (tabName === 'logs') {
+                loadJobLogs();
+                loadSystemLogs();
+            }
+            if (tabName === 'certificates') loadCertificates();
+        }
+
+        // Load Orchestrators
+        async function loadOrchestrators() {
+            const container = document.getElementById('orchestratorsContainer');
+            
+            try {
+                const response = await fetchWithAuth('/api/orchestrators');
+                if (!response) return;
+
+                const orchestrators = await response.json();
+
+                if (!orchestrators || orchestrators.length === 0) {
+                    container.innerHTML = '<div class="no-data">No orchestrators registered</div>';
+                    return;
+                }
+
+                const now = new Date();
+                container.innerHTML = `
+                    <div class="orchestrators-grid">
+                        ${orchestrators.map(o => {
+                            const lastHeartbeat = new Date(o.lastHeartbeat);
+                            const minutesAgo = Math.floor((now - lastHeartbeat) / 60000);
+                            const isOnline = o.isOnline;
+                            
+                            return `
+                                <div class="orchestrator-card ${isOnline ? '' : 'offline'}">
+                                    <div class="orchestrator-header">
+                                        <h3>
+                                            <span class="status-dot ${isOnline ? '' : 'offline'}"></span>
+                                            ${o.hostName || o.id}
+                                        </h3>
+                                        ${!isOnline ? `<button class="btn-small danger" onclick="deleteOrchestrator('${o.id}')">Delete</button>` : ''}
+                                    </div>
+                                    <div class="detail"><strong>Customer:</strong> ${o.customerName || 'N/A'}</div>
+                                    <div class="detail"><strong>ID:</strong> ${o.id}</div>
+                                    <div class="detail"><strong>Version:</strong> ${o.version || 'Unknown'}</div>
+                                    <div class="detail"><strong>Status:</strong> ${isOnline ? '🟢 Online' : '🔴 Offline'}</div>
+                                    <div class="detail"><strong>Last Heartbeat:</strong> ${minutesAgo < 60 ? minutesAgo + 'm ago' : Math.floor(minutesAgo/60) + 'h ago'}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading orchestrators:', error);
+                container.innerHTML = '<div class="no-data">Error loading orchestrators</div>';
+            }
+        }
+
+        // Delete specific orchestrator
+        async function deleteOrchestrator(id) {
+            if (!await showConfirm('This will remove it from the dashboard.', 'Delete Orchestrator?')) {
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`/api/orchestrators/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.ok) {
+                    showToast('Orchestrator deleted successfully', 'success');
+                    loadOrchestrators();
+                } else {
+                    showToast('Failed to delete orchestrator. Check if DELETE endpoint exists.', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting orchestrator:', error);
+                showToast('Error deleting orchestrator', 'error');
+            }
+        }
+
+        // Cleanup offline orchestrators
+        async function cleanupOrchestrators() {
+            if (!await showConfirm('Remove all offline orchestrators? This action cannot be undone.', 'Cleanup Orchestrators?')) {
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth('/api/orchestrators');
+                if (!response) return;
+
+                const orchestrators = await response.json();
+                const offlineOrchestrators = orchestrators.filter(o => !o.isOnline);
+
+                if (offlineOrchestrators.length === 0) {
+                    showToast('No offline orchestrators to remove.', 'info');
+                    return;
+                }
+
+                let deleted = 0;
+                for (const orch of offlineOrchestrators) {
+                    const delResponse = await fetchWithAuth(`/api/orchestrators/${orch.id}`, {
+                        method: 'DELETE'
+                    });
+                    if (delResponse && delResponse.ok) deleted++;
+                }
+
+                showToast(`Removed ${deleted} offline orchestrator(s)`, 'success');
+                loadOrchestrators();
+            } catch (error) {
+                console.error('Error cleaning up orchestrators:', error);
+                showToast('Error during cleanup', 'error');
+            }
+        }
+
+        // Load Jobs
+        async function loadJobs() {
+            const container = document.getElementById('jobsContainer');
+            
+            try {
+                const response = await fetchWithAuth('/api/jobs');
+                if (!response) return;
+
+                allJobs = await response.json();
+
+                // Populate job filter dropdown
+                const jobSelect = document.getElementById('logFilterJob');
+                const uniqueJobIds = [...new Set(allJobs.map(j => j.id))];
+                jobSelect.innerHTML = '<option value="">All Jobs</option>' + 
+                    uniqueJobIds.slice(0, 50).map(id => {
+                        const job = allJobs.find(j => j.id === id);
+                        return `<option value="${id}">${job.customerName} - ${id.substring(0, 8)}</option>`;
+                    }).join('');
+
+                filterJobs();
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+                container.innerHTML = '<div class="no-data">Error loading jobs</div>';
+            }
+        }
+
+        // Filter jobs
+        function filterJobs() {
+            const customerFilter = document.getElementById('jobFilterCustomer').value.toLowerCase();
+            const statusFilter = document.getElementById('jobFilterStatus').value;
+            
+            let filtered = allJobs;
+            
+            if (customerFilter) {
+                filtered = filtered.filter(j => (j.customerName || '').toLowerCase().includes(customerFilter));
+            }
+            
+            if (statusFilter) {
+                filtered = filtered.filter(j => j.status === statusFilter);
+            }
+
+            const container = document.getElementById('jobsContainer');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No jobs found</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Job Type</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Orchestrator</th>
+                            <th>ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.slice(0, 100).map(job => `
+                            <tr>
+                                <td>${job.customerName || 'N/A'}</td>
+                                <td>${job.jobType || 'N/A'}</td>
+                                <td><span class="status-badge status-${(job.status || 'pending').toLowerCase()}">${job.status || 'Pending'}</span></td>
+                                <td>${job.createdAt ? new Date(job.createdAt).toLocaleString() : 'N/A'}</td>
+                                <td>${job.orchestratorId ? job.orchestratorId.substring(0, 8) : 'Unassigned'}</td>
+                                <td style="font-family: monospace; font-size: 0.75rem;">${job.id ? job.id.substring(0, 8) : 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Load Job Container Logs (from executed containers)
+        async function loadJobLogs() {
+            const container = document.getElementById('jobLogsContainer');
+            const jobFilter = document.getElementById('logFilterJob').value;
+            
+            try {
+                const url = jobFilter ? `/api/logs?jobId=${jobFilter}&source=container` : '/api/logs?source=container';
+                const response = await fetchWithAuth(url);
+                if (!response) return;
+
+                const logs = await response.json();
+
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div class="no-data" style="color: #9ca3af;">No container logs available</div>';
+                    return;
+                }
+
+                container.innerHTML = logs.slice(-200).reverse().map(log => {
+                    const level = (log.level || 'info').toLowerCase();
+                    const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A';
+                    
+                    return `
+                        <div class="log-entry ${level}">
+                            <div>
+                                <span class="log-timestamp">${timestamp}</span>
+                                <span class="log-level ${level}">${level.toUpperCase()}</span>
+                            </div>
+                            <div class="log-message">${log.message || 'No message'}</div>
+                            ${log.jobId ? `<div class="log-job">Job: ${log.jobId.substring(0, 8)}...</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                // Auto-scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                console.error('Error loading job logs:', error);
+                container.innerHTML = '<div class="no-data" style="color: #ef4444;">Error loading container logs</div>';
+            }
+        }
+
+        // Load Orchestrator System Logs
+        async function loadSystemLogs() {
+            const container = document.getElementById('systemLogsContainer');
+            
+            try {
+                const url = '/api/logs?source=orchestrator';
+                const response = await fetchWithAuth(url);
+                if (!response) return;
+
+                const logs = await response.json();
+
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div class="no-data" style="color: #9ca3af;">No system logs available</div>';
+                    return;
+                }
+
+                container.innerHTML = logs.slice(-200).reverse().map(log => {
+                    const level = (log.level || 'info').toLowerCase();
+                    const timestamp = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A';
+                    
+                    return `
+                        <div class="log-entry ${level}">
+                            <div>
+                                <span class="log-timestamp">${timestamp}</span>
+                                <span class="log-level ${level}">${level.toUpperCase()}</span>
+                            </div>
+                            <div class="log-message">${log.message || 'No message'}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Auto-scroll to bottom
+                container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                console.error('Error loading system logs:', error);
+                container.innerHTML = '<div class="no-data" style="color: #ef4444;">Error loading system logs</div>';
+            }
+        }
+
+        function clearLogsDisplay(containerId) {
+            document.getElementById(containerId).innerHTML = '<div class="no-data" style="color: #9ca3af;">Logs cleared. Click Refresh to reload.</div>';
+        }
+
+        // Load Certificates
+        async function loadCertificates() {
+            const container = document.getElementById('certificatesContainer');
+            
+            try {
+                const response = await fetchWithAuth('/api/certificates');
+                if (!response) return;
+
+                const certificates = await response.json();
+
+                if (!certificates || certificates.length === 0) {
+                    container.innerHTML = '<div class="no-data">No certificates found</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Thumbprint</th>
+                                <th>Created</th>
+                                <th>Expires</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${certificates.map(cert => {
+                                const now = new Date();
+                                const expiresAt = new Date(cert.expiresAt);
+                                const minutesLeft = Math.floor((expiresAt - now) / 60000);
+                                const isExpired = minutesLeft <= 0;
+                                const isExpiringSoon = minutesLeft > 0 && minutesLeft < 30;
+                                
+                                return `
+                                    <tr>
+                                        <td>${cert.customerName || 'N/A'}</td>
+                                        <td style="font-family: monospace; font-size: 0.75rem;">${cert.thumbprint ? cert.thumbprint.substring(0, 16) + '...' : 'N/A'}</td>
+                                        <td>${cert.createdAt ? new Date(cert.createdAt).toLocaleString() : 'N/A'}</td>
+                                        <td>${expiresAt.toLocaleString()}</td>
+                                        <td>
+                                            ${isExpired ? '<span class="status-badge status-failed">Expired</span>' : 
+                                              isExpiringSoon ? '<span class="status-badge status-pending">Expiring Soon</span>' : 
+                                              '<span class="status-badge status-completed">Valid</span>'}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error loading certificates:', error);
+                container.innerHTML = '<div class="no-data">Error loading certificates</div>';
+            }
+        }
+
+        // Initial load
+        loadOrchestrators();
+        loadRegistries();
+
+        // Create Job Form
+        document.getElementById('createJobForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const selectedRegistryId = document.getElementById('newJobRegistry').value;
+            let registryServer = '';
+            let registryUsername = '';
+            let registryPassword = '';
+
+            if (selectedRegistryId) {
+                const selectedRegistry = registriesCache.find(r => r.id === selectedRegistryId);
+                if (selectedRegistry) {
+                    registryServer = selectedRegistry.server;
+                    registryUsername = selectedRegistry.username;
+                    registryPassword = selectedRegistry.password;
+                }
+            }
+
+            let parameters = {};
+            const paramsText = document.getElementById('newJobParameters').value.trim();
+            if (paramsText) {
+                try {
+                    parameters = JSON.parse(paramsText);
+                } catch (e) {
+                    showToast('Invalid JSON in Parameters field', 'error');
+                    return;
+                }
+            }
+
+            const jobData = {
+                name: document.getElementById('newJobName').value.trim(),
+                customer: document.getElementById('newJobCustomer').value.trim(),
+                scriptPath: document.getElementById('newJobScript').value.trim(),
+                containerImage: document.getElementById('newJobImage').value.trim(),
+                jobType: parseInt(document.getElementById('newJobType').value),
+                isWhatIf: document.getElementById('newJobWhatIf').checked,
+                parameters: parameters
+            };
+
+            if (registryServer) {
+                jobData.registryServer = registryServer;
+                jobData.registryUsername = registryUsername;
+                jobData.registryPassword = registryPassword;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+
+            try {
+                const response = await fetchWithAuth('/api/jobs', {
+                    method: 'POST',
+                    body: JSON.stringify(jobData)
+                });
+
+                if (response && response.ok) {
+                    showToast('Job created successfully!', 'success');
+                    resetJobForm();
+                    showTab('jobs');
+                    loadJobs();
+                } else {
+                    const error = await response.text();
+                    showToast('Failed to create job: ' + error, 'error');
+                }
+            } catch (error) {
+                console.error('Error creating job:', error);
+                showToast('Error creating job', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Job';
+            }
+        });
+
+        function resetJobForm() {
+            document.getElementById('createJobForm').reset();
+            document.getElementById('newJobParameters').value = '';
+        }
+
+        // Registries Management
+        let registriesCache = [];
+
+        async function loadRegistries() {
+            const container = document.getElementById('registriesContainer');
+            
+            try {
+                const response = await fetchWithAuth('/api/registries');
+                if (!response) return;
+
+                registriesCache = await response.json();
+
+                // Update registry dropdown in create job form
+                const registrySelect = document.getElementById('newJobRegistry');
+                registrySelect.innerHTML = '<option value="">No Registry (Public Image)</option>' +
+                    registriesCache.map(r => `<option value="${r.id}">${r.name} (${r.server})</option>`).join('');
+
+                if (!registriesCache || registriesCache.length === 0) {
+                    container.innerHTML = '<div class="no-data">No registries configured</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Server</th>
+                                <th>Username</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${registriesCache.map(reg => `
+                                <tr>
+                                    <td><strong>${reg.name}</strong></td>
+                                    <td><code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 0.8125rem;">${reg.server}</code></td>
+                                    <td>${reg.username}</td>
+                                    <td>
+                                        <button class="btn-small danger" onclick="deleteRegistry('${reg.id}')">🗑️ Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error loading registries:', error);
+                container.innerHTML = '<div class="no-data">Error loading registries</div>';
+            }
+        }
+
+        document.getElementById('addRegistryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const registryData = {
+                name: document.getElementById('registryName').value.trim(),
+                server: document.getElementById('registryServer').value.trim(),
+                username: document.getElementById('registryUsername').value.trim(),
+                password: document.getElementById('registryPassword').value
+            };
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Adding...';
+
+            try {
+                const response = await fetchWithAuth('/api/registries', {
+                    method: 'POST',
+                    body: JSON.stringify(registryData)
+                });
+
+                if (response && response.ok) {
+                    showToast('Registry added successfully', 'success');
+                    document.getElementById('addRegistryForm').reset();
+                    await loadRegistries();
+                } else {
+                    showToast('Failed to add registry', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding registry:', error);
+                showToast('Error adding registry', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '➕ Add Registry';
+            }
+        });
+
+        async function deleteRegistry(id) {
+            if (!await showConfirm('Jobs using this registry may fail.', 'Delete Registry?')) {
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`/api/registries/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.ok) {
+                    showToast('Registry deleted successfully', 'success');
+                    await loadRegistries();
+                } else {
+                    showToast('Failed to delete registry', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting registry:', error);
+                showToast('Error deleting registry', 'error');
+            }
+        }
+
+        // Auto-refresh
+        setInterval(() => {
+            const activeTab = document.querySelector('.tab-content.active').id;
+            if (activeTab === 'orchestrators-tab') loadOrchestrators();
+            if (activeTab === 'logs-tab') {
+                loadJobLogs();
+                loadSystemLogs();
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

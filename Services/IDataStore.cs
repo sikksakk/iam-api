@@ -28,4 +28,11 @@ public interface IDataStore
     ContainerRegistry? GetRegistry(Guid id);
     void AddRegistry(ContainerRegistry registry);
     void RemoveRegistry(Guid id);
+    
+    // Customers
+    IEnumerable<Customer> GetCustomers();
+    Customer? GetCustomer(string id);
+    void AddCustomer(Customer customer);
+    void UpdateCustomer(Customer customer);
+    void DeleteCustomer(string id);
 }

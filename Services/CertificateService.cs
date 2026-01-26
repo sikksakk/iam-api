@@ -499,8 +499,55 @@ public class CertificateService : ICertificateService
 
     public async Task<List<CustomerCertificate>> GetAllCertificatesAsync()
     {
-        await Task.CompletedTask;
-        return _certificates.Values.ToList();
+        var allCerts = new List<CustomerCertificate>();
+        
+        // Add in-memory certificates
+        allCerts.AddRange(_certificates.Values);
+        
+        // Try to fetch from Azure AD
+        try
+        {
+            var applicationObjectId = _configuration["EntraId:ApplicationObjectId"];
+            if (string.IsNullOrEmpty(applicationObjectId))
+            {
+                _logger.LogDebug("ApplicationObjectId not configured, returning only in-memory certificates");
+                return allCerts;
+            }
+
+            var graphClient = GetGraphClient();
+            var application = await graphClient.Applications[applicationObjectId].GetAsync();
+            
+            if (application?.KeyCredentials != null)
+            {
+                foreach (var keyCred in application.KeyCredentials)
+                {
+                    // Check if this certificate is already in our in-memory cache
+                    var existingCert = allCerts.FirstOrDefault(c => c.KeyId == keyCred.KeyId.ToString());
+                    if (existingCert == null && keyCred.EndDateTime.HasValue)
+                    {
+                        // Add certificate from Azure AD that's not in our cache
+                        allCerts.Add(new CustomerCertificate
+                        {
+                            CustomerName = keyCred.DisplayName ?? "Unknown",
+                            Thumbprint = keyCred.CustomKeyIdentifier != null ? 
+                                BitConverter.ToString(keyCred.CustomKeyIdentifier).Replace("-", "") : "N/A",
+                            KeyId = keyCred.KeyId?.ToString() ?? string.Empty,
+                            CreatedAt = keyCred.StartDateTime?.DateTime ?? DateTime.UtcNow,
+                            ExpiresAt = keyCred.EndDateTime.Value.DateTime,
+                            CertificateData = string.Empty // Certificate data not available from Azure AD
+                        });
+                    }
+                }
+            }
+            
+            _logger.LogDebug("Retrieved {Count} certificates from Azure AD", application?.KeyCredentials?.Count ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve certificates from Azure AD, returning only in-memory certificates");
+        }
+        
+        return allCerts.OrderByDescending(c => c.CreatedAt).ToList();
     }
 
     private static string GenerateSecurePassword()
