@@ -396,6 +396,8 @@
         <div class="tabs">
             <button class="tab active" onclick="showTab('orchestrators')">📡 Orchestrators</button>
             <button class="tab" onclick="showTab('jobs')">📋 Jobs</button>
+            <button class="tab" onclick="showTab('createjob')">➕ Create Job</button>
+            <button class="tab" onclick="showTab('registries')">📦 Registries</button>
             <button class="tab" onclick="showTab('logs')">📄 Logs</button>
             <button class="tab" onclick="showTab('certificates')">🔒 Certificates</button>
         </div>
@@ -437,6 +439,99 @@
                     <div class="loading">
                         <span class="spinner"></span>
                         Loading jobs...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Job Tab -->
+        <div id="createjob-tab" class="tab-content">
+            <div class="section">
+                <h2>Create New Job</h2>
+                <form id="createJobForm" style="display: grid; gap: 16px; max-width: 800px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Job Name</label>
+                            <input type="text" id="newJobName" placeholder="e.g., Deploy-AzureResources" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Customer</label>
+                            <input type="text" id="newJobCustomer" placeholder="e.g., alpha" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Job Type</label>
+                            <select id="newJobType" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                                <option value="">Select Type</option>
+                                <option value="0">Scheduled</option>
+                                <option value="1">OneOff</option>
+                                <option value="2">Manual</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Registry</label>
+                            <select id="newJobRegistry" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                                <option value="">No Registry (Public Image)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Container Image</label>
+                        <input type="text" id="newJobImage" placeholder="e.g., ghcr.io/user/image:tag or mcr.microsoft.com/powershell:latest" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <small style="color: #6b7280; font-size: 0.75rem;">Full image path including registry and tag</small>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">Script Path</label>
+                        <input type="text" id="newJobScript" placeholder="e.g., /scripts/deploy.ps1 or ./customer-scripts/setup.ps1" required style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <small style="color: #6b7280; font-size: 0.75rem;">Path to the script inside the container</small>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 4px; font-size: 0.875rem; font-weight: 500; color: #374151;">
+                            <input type="checkbox" id="newJobWhatIf" style="margin-right: 8px;">
+                            WhatIf Mode (dry-run, no actual changes)
+                        </label>
+                    </div>
+
+                    <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.875rem; font-weight: 500; color: #374151;">Parameters (JSON)</label>
+                        <textarea id="newJobParameters" placeholder='{"param1": "value1", "param2": "value2"}' rows="4" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.8125rem; font-family: 'Courier New', monospace;"></textarea>
+                        <small style="color: #6b7280; font-size: 0.75rem;">Optional: JSON object with job parameters</small>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button type="submit" class="btn-primary" style="padding: 12px 24px;">Create Job</button>
+                        <button type="button" onclick="resetJobForm()" style="padding: 12px 24px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer;">Reset</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Registries Tab -->
+        <div id="registries-tab" class="tab-content">
+            <div class="section">
+                <h2>Container Registries</h2>
+                <form id="addRegistryForm" style="display: grid; gap: 12px; margin-bottom: 24px; max-width: 800px; background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <h3 style="font-size: 1rem; color: #111827; margin-bottom: 8px;">Add New Registry</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <input type="text" id="registryName" placeholder="Registry Name (e.g., GitHub)" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <input type="text" id="registryServer" placeholder="Server (e.g., ghcr.io)" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <input type="text" id="registryUsername" placeholder="Username" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                        <input type="password" id="registryPassword" placeholder="Password / Token" required style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.875rem;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="padding: 10px;">➕ Add Registry</button>
+                </form>
+
+                <div id="registriesContainer">
+                    <div class="loading">
+                        <span class="spinner"></span>
+                        Loading registries...
                     </div>
                 </div>
             </div>
@@ -528,7 +623,18 @@
         function showTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // If called programmatically, find the button manually
+                const allTabs = Array.from(document.querySelectorAll('.tab'));
+                const targetTab = allTabs.find(t => t.textContent.includes(tabName === 'orchestrators' ? '📡' : 
+                                                                           tabName === 'jobs' ? '📋' :
+                                                                           tabName === 'createjob' ? '➕' :
+                                                                           tabName === 'registries' ? '📦' :
+                                                                           tabName === 'logs' ? '📄' : '🔒'));
+                if (targetTab) targetTab.classList.add('active');
+            }
 
             // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -537,6 +643,7 @@
             // Load data for the active tab
             if (tabName === 'orchestrators') loadOrchestrators();
             if (tabName === 'jobs') loadJobs();
+            if (tabName === 'registries') loadRegistries();
             if (tabName === 'logs') loadLogs();
             if (tabName === 'certificates') loadCertificates();
         }
@@ -825,6 +932,193 @@
 
         // Initial load
         loadOrchestrators();
+        loadRegistries();
+
+        // Create Job Form
+        document.getElementById('createJobForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const selectedRegistryId = document.getElementById('newJobRegistry').value;
+            let registryServer = '';
+            let registryUsername = '';
+            let registryPassword = '';
+
+            if (selectedRegistryId) {
+                const selectedRegistry = registriesCache.find(r => r.id === selectedRegistryId);
+                if (selectedRegistry) {
+                    registryServer = selectedRegistry.server;
+                    registryUsername = selectedRegistry.username;
+                    registryPassword = selectedRegistry.password;
+                }
+            }
+
+            let parameters = {};
+            const paramsText = document.getElementById('newJobParameters').value.trim();
+            if (paramsText) {
+                try {
+                    parameters = JSON.parse(paramsText);
+                } catch (e) {
+                    alert('Invalid JSON in Parameters field');
+                    return;
+                }
+            }
+
+            const jobData = {
+                name: document.getElementById('newJobName').value.trim(),
+                customer: document.getElementById('newJobCustomer').value.trim(),
+                scriptPath: document.getElementById('newJobScript').value.trim(),
+                containerImage: document.getElementById('newJobImage').value.trim(),
+                jobType: parseInt(document.getElementById('newJobType').value),
+                isWhatIf: document.getElementById('newJobWhatIf').checked,
+                parameters: parameters
+            };
+
+            if (registryServer) {
+                jobData.registryServer = registryServer;
+                jobData.registryUsername = registryUsername;
+                jobData.registryPassword = registryPassword;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+
+            try {
+                const response = await fetchWithAuth('/api/jobs', {
+                    method: 'POST',
+                    body: JSON.stringify(jobData)
+                });
+
+                if (response && response.ok) {
+                    alert('Job created successfully!');
+                    resetJobForm();
+                    showTab('jobs');
+                    loadJobs();
+                } else {
+                    const error = await response.text();
+                    alert('Failed to create job: ' + error);
+                }
+            } catch (error) {
+                console.error('Error creating job:', error);
+                alert('Error creating job');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Job';
+            }
+        });
+
+        function resetJobForm() {
+            document.getElementById('createJobForm').reset();
+            document.getElementById('newJobParameters').value = '';
+        }
+
+        // Registries Management
+        let registriesCache = [];
+
+        async function loadRegistries() {
+            const container = document.getElementById('registriesContainer');
+            
+            try {
+                const response = await fetchWithAuth('/api/registries');
+                if (!response) return;
+
+                registriesCache = await response.json();
+
+                // Update registry dropdown in create job form
+                const registrySelect = document.getElementById('newJobRegistry');
+                registrySelect.innerHTML = '<option value="">No Registry (Public Image)</option>' +
+                    registriesCache.map(r => `<option value="${r.id}">${r.name} (${r.server})</option>`).join('');
+
+                if (!registriesCache || registriesCache.length === 0) {
+                    container.innerHTML = '<div class="no-data">No registries configured</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Server</th>
+                                <th>Username</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${registriesCache.map(reg => `
+                                <tr>
+                                    <td><strong>${reg.name}</strong></td>
+                                    <td><code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-size: 0.8125rem;">${reg.server}</code></td>
+                                    <td>${reg.username}</td>
+                                    <td>
+                                        <button class="btn-small danger" onclick="deleteRegistry('${reg.id}')">🗑️ Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                console.error('Error loading registries:', error);
+                container.innerHTML = '<div class="no-data">Error loading registries</div>';
+            }
+        }
+
+        document.getElementById('addRegistryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const registryData = {
+                name: document.getElementById('registryName').value.trim(),
+                server: document.getElementById('registryServer').value.trim(),
+                username: document.getElementById('registryUsername').value.trim(),
+                password: document.getElementById('registryPassword').value
+            };
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Adding...';
+
+            try {
+                const response = await fetchWithAuth('/api/registries', {
+                    method: 'POST',
+                    body: JSON.stringify(registryData)
+                });
+
+                if (response && response.ok) {
+                    document.getElementById('addRegistryForm').reset();
+                    await loadRegistries();
+                } else {
+                    alert('Failed to add registry');
+                }
+            } catch (error) {
+                console.error('Error adding registry:', error);
+                alert('Error adding registry');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '➕ Add Registry';
+            }
+        });
+
+        async function deleteRegistry(id) {
+            if (!confirm('Delete this registry? Jobs using this registry may fail.')) {
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`/api/registries/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response && response.ok) {
+                    await loadRegistries();
+                } else {
+                    alert('Failed to delete registry');
+                }
+            } catch (error) {
+                console.error('Error deleting registry:', error);
+                alert('Error deleting registry');
+            }
+        }
 
         // Auto-refresh
         setInterval(() => {
