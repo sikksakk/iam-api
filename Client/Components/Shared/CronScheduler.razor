@@ -1,0 +1,136 @@
+@code {
+    [Parameter]
+    public string CronExpression { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> CronExpressionChanged { get; set; }
+
+    private bool[] selectedDays = new bool[7]; // Mon-Sun
+    private int hour = 0;
+    private int minute = 0;
+    private string cronPreview = "";
+    private readonly string[] dayNames = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+
+    protected override void OnInitialized()
+    {
+        ParseCronExpression(CronExpression);
+        UpdateCronExpression();
+    }
+
+    private void ParseCronExpression(string cron)
+    {
+        if (string.IsNullOrEmpty(cron)) return;
+
+        var parts = cron.Split(' ');
+        if (parts.Length == 5)
+        {
+            int.TryParse(parts[0], out minute);
+            int.TryParse(parts[1], out hour);
+
+            if (parts[4] != "*")
+            {
+                var days = parts[4].Split(',');
+                foreach (var day in days)
+                {
+                    if (int.TryParse(day, out int dayNum) && dayNum >= 1 && dayNum <= 7)
+                    {
+                        selectedDays[dayNum - 1] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    private void ToggleDay(int index)
+    {
+        selectedDays[index] = !selectedDays[index];
+        _ = UpdateCronExpression();
+    }
+
+    private void OnHourChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int h) && h >= 0 && h <= 23)
+        {
+            hour = h;
+            _ = UpdateCronExpression();
+        }
+    }
+
+    private void OnMinuteChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int m) && m >= 0 && m <= 59)
+        {
+            minute = m;
+            _ = UpdateCronExpression();
+        }
+    }
+
+    private async Task UpdateCronExpression()
+    {
+        var dayIndices = selectedDays
+            .Select((selected, index) => selected ? (index + 1).ToString() : null)
+            .Where(d => d != null)
+            .ToList();
+
+        var dayPart = dayIndices.Any() ? string.Join(",", dayIndices) : "*";
+        var cron = $"{minute} {hour} * * {dayPart}";
+        
+        cronPreview = BuildHumanReadable();
+        CronExpression = cron;
+        await CronExpressionChanged.InvokeAsync(cron);
+    }
+
+    private string BuildHumanReadable()
+    {
+        var days = selectedDays
+            .Select((selected, index) => selected ? dayNames[index] : null)
+            .Where(d => d != null)
+            .ToList();
+
+        if (!days.Any())
+            return $"Every day at {hour:D2}:{minute:D2}";
+
+        return $"Every {string.Join(", ", days)} at {hour:D2}:{minute:D2}";
+    }
+}
+
+<div class="cron-scheduler">
+    <div class="day-selector">
+        <label>Days:</label>
+        <div class="day-buttons">
+            @for (int i = 0; i < 7; i++)
+            {
+                var index = i; // Capture for lambda
+                <button type="button" 
+                        class="day-btn @(selectedDays[index] ? "active" : "")" 
+                        @onclick="() => ToggleDay(index)">
+                    @dayNames[index]
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="time-selector">
+        <label>Time:</label>
+        <div class="time-inputs">
+            <input type="number" 
+                   min="0" 
+                   max="23" 
+                   value="@hour" 
+                   @onchange="OnHourChanged" 
+                   class="time-input" />
+            <span>:</span>
+            <input type="number" 
+                   min="0" 
+                   max="59" 
+                   value="@minute" 
+                   @onchange="OnMinuteChanged" 
+                   class="time-input" />
+        </div>
+    </div>
+
+    <div class="cron-preview">
+        <label>Schedule:</label>
+        <div class="preview-text">@cronPreview</div>
+    </div>
+</div>

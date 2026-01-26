@@ -1,0 +1,169 @@
+@inject ApiService Api
+@inject ToastService Toast
+
+<div class="tab-content">
+    <div class="tab-header">
+        <h2>Customers</h2>
+        <button class="add-btn" @onclick="OpenCreateModal">➕ Create Customer</button>
+    </div>
+
+    @if (isLoading)
+    {
+        <p>Loading customers...</p>
+    }
+    else if (customers == null || !customers.Any())
+    {
+        <p>No customers found.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var customer in customers)
+                {
+                    <tr>
+                        <td>@customer.Name</td>
+                        <td>@customer.Description</td>
+                        <td>
+                            <button class="edit-btn" @onclick="() => OpenEditModal(customer)">Edit</button>
+                            <button class="delete-btn" @onclick="() => DeleteCustomer(customer.Name)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(isEditMode ? "Edit Customer" : "Create Customer")</h3>
+                <button class="close-btn" @onclick="CloseModal">✖</button>
+            </div>
+            <EditForm Model="@customerForm" OnValidSubmit="SubmitCustomerForm">
+                <DataAnnotationsValidator />
+                <div class="form-group">
+                    <label>Name:</label>
+                    <InputText @bind-Value="customerForm.Name" class="form-control" disabled="@isEditMode" />
+                </div>
+                <div class="form-group">
+                    <label>Description:</label>
+                    <InputText @bind-Value="customerForm.Description" class="form-control" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="cancel-btn" @onclick="CloseModal">Cancel</button>
+                    <button type="submit" class="submit-btn" disabled="@isSubmitting">
+                        @(isEditMode ? "Update" : "Create")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Customer> customers = new();
+    private CreateCustomerRequest customerForm = new();
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool showModal = false;
+    private bool isEditMode = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        isLoading = true;
+        try
+        {
+            customers = await Api.GetCustomers();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load customers: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        customerForm = new();
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void OpenEditModal(Customer customer)
+    {
+        customerForm = new CreateCustomerRequest
+        {
+            Name = customer.Name,
+            Description = customer.Description
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        customerForm = new();
+    }
+
+    private async Task SubmitCustomerForm()
+    {
+        isSubmitting = true;
+        try
+        {
+            if (isEditMode)
+            {
+                await Api.UpdateCustomer(customerForm.Name, customerForm);
+                await Toast.ShowSuccess("Customer updated");
+            }
+            else
+            {
+                await Api.CreateCustomer(customerForm);
+                await Toast.ShowSuccess("Customer created");
+            }
+            CloseModal();
+            await LoadCustomers();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to save customer: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task DeleteCustomer(string name)
+    {
+        try
+        {
+            await Api.DeleteCustomer(name);
+            await Toast.ShowSuccess("Customer deleted");
+            await LoadCustomers();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to delete customer: {ex.Message}");
+        }
+    }
+}

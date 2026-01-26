@@ -1,0 +1,79 @@
+@page "/login"
+@inject ApiService Api
+@inject NavigationManager Navigation
+@inject ToastService Toast
+
+<PageTitle>Login - IAM Dashboard</PageTitle>
+
+<div class="login-container">
+    <div class="login-box">
+        <h1>🔐 IAM Dashboard</h1>
+        <p class="subtitle">Identity & Access Management</p>
+
+        <EditForm Model="@loginRequest" OnValidSubmit="HandleLogin">
+            <DataAnnotationsValidator />
+
+            <div class="form-group">
+                <label>Username</label>
+                <InputText @bind-Value="loginRequest.Username" class="form-control" placeholder="Enter username" />
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <InputText type="password" @bind-Value="loginRequest.Password" class="form-control" placeholder="Enter password" />
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%;" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span>Logging in...</span>
+                }
+                else
+                {
+                    <span>Login</span>
+                }
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await Api.GetToken();
+        if (!string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        try
+        {
+            var response = await Api.Login(loginRequest);
+            if (response != null)
+            {
+                await Api.SetToken(response.Token);
+                await Toast.ShowSuccess("Login successful");
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                await Toast.ShowError("Invalid credentials");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Login failed: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

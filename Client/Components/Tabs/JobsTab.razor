@@ -1,0 +1,270 @@
+@inject ApiService Api
+@inject ToastService Toast
+
+<div class="tab-content">
+    <div class="tab-header">
+        <h2>Jobs</h2>
+        <button class="add-btn" @onclick="OpenCreateModal">➕ Create Job</button>
+    </div>
+
+    @if (isLoading)
+    {
+        <p>Loading jobs...</p>
+    }
+    else if (jobs == null || !jobs.Any())
+    {
+        <p>No jobs found.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Customer</th>
+                    <th>Image</th>
+                    <th>Registry</th>
+                    <th>Schedule</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var job in jobs)
+                {
+                    <tr>
+                        <td>@job.Id.ToString().Substring(0, 8)</td>
+                        <td>@job.Customer</td>
+                        <td>@job.ContainerImage</td>
+                        <td>@job.RegistryServer</td>
+                        <td>@(job.Schedule ?? "One-time")</td>
+                        <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            <button class="delete-btn" @onclick="() => DeleteJob(job.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Create Job</h3>
+                <button class="close-btn" @onclick="CloseModal">✖</button>
+            </div>
+            <EditForm Model="@jobForm" OnValidSubmit="SubmitJobForm">
+                <DataAnnotationsValidator />
+                <div class="form-group">
+                    <label>Customer:</label>
+                    <select @bind="jobForm.Customer" class="form-control">
+                        <option value="">-- Select customer --</option>
+                        @foreach (var customer in customers)
+                        {
+                            <option value="@customer.Name">@customer.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Registry Server:</label>
+                    <select @bind="selectedRegistryName" @bind:after="OnRegistrySelected" class="form-control">
+                        <option value="">-- Select registry --</option>
+                        @foreach (var registry in registries)
+                        {
+                            <option value="@registry.Name">@registry.Name (@registry.Server)</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Container Image:</label>
+                    <InputText @bind-Value="jobForm.ContainerImage" class="form-control" placeholder="myimage:latest" />
+                </div>
+                <div class="form-group">
+                    <label>Name:</label>
+                    <InputText @bind-Value="jobForm.Name" class="form-control" placeholder="My Job" />
+                </div>
+                <div class="form-group">
+                    <label>Script Path:</label>
+                    <InputText @bind-Value="jobForm.ScriptPath" class="form-control" placeholder="/scripts/myscript.ps1" />
+                </div>
+
+                <div class="schedule-section">
+                    <h4>Schedule</h4>
+                    <div class="schedule-type">
+                        <label>
+                            <input type="radio" name="scheduleType" value="once" @onchange="() => SetScheduleType(false)" checked="@(!useRecurring)" />
+                            Run Once
+                        </label>
+                        <label>
+                            <input type="radio" name="scheduleType" value="recurring" @onchange="() => SetScheduleType(true)" checked="@useRecurring" />
+                            Recurring (Cron)
+                        </label>
+                    </div>
+
+                    @if (useRecurring)
+                    {
+                        <CronScheduler CronExpression="@jobForm.Schedule" CronExpressionChanged="@(EventCallback.Factory.Create<string>(this, value => jobForm.Schedule = value))" />
+                    }
+                    else
+                    {
+                        <div class="form-group">
+                            <label>Run At:</label>
+                            <input type="datetime-local" @bind="scheduledForInput" class="form-control" />
+                        </div>
+                    }
+                </div>
+
+                <div class="parameters-section">
+                    <h4>Parameters</h4>
+                    <ParameterInput Parameters="@jobForm.Parameters" ParametersChanged="@(EventCallback.Factory.Create<Dictionary<string, string>>(this, value => jobForm.Parameters = value))" />
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="cancel-btn" @onclick="CloseModal">Cancel</button>
+                    <button type="submit" class="submit-btn" disabled="@isSubmitting">Create Job</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Job> jobs = new();
+    private List<Customer> customers = new();
+    private List<ContainerRegistry> registries = new();
+    private CreateJobRequest jobForm = new() { Parameters = new() };
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool showModal = false;
+    private bool useRecurring = false;
+    private DateTime scheduledForInput = DateTime.Now.AddHours(1);
+    private string selectedRegistryName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadJobs(), LoadCustomers(), LoadRegistries());
+    }
+
+    private void OnRegistrySelected()
+    {
+        var registry = registries.FirstOrDefault(r => r.Name == selectedRegistryName);
+        if (registry != null)
+        {
+            jobForm.RegistryServer = registry.Server;
+            jobForm.RegistryUsername = registry.Username;
+            jobForm.RegistryPassword = registry.Password;
+        }
+    }
+
+    private async Task LoadJobs()
+    {
+        isLoading = true;
+        try
+        {
+            jobs = await Api.GetJobs();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load jobs: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadCustomers()
+    {
+        try
+        {
+            customers = await Api.GetCustomers();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load customers: {ex.Message}");
+        }
+    }
+
+    private async Task LoadRegistries()
+    {
+        try
+        {
+            registries = await Api.GetRegistries();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load registries: {ex.Message}");
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        jobForm = new() { Parameters = new() };
+        useRecurring = false;
+        scheduledForInput = DateTime.Now.AddHours(1);
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        jobForm = new() { Parameters = new() };
+    }
+
+    private void SetScheduleType(bool recurring)
+    {
+        useRecurring = recurring;
+        if (!recurring)
+        {
+            jobForm.Schedule = null;
+        }
+    }
+
+    private async Task SubmitJobForm()
+    {
+        isSubmitting = true;
+        try
+        {
+            if (!useRecurring)
+            {
+                jobForm.ScheduledFor = scheduledForInput;
+                jobForm.Schedule = null;
+            }
+            else
+            {
+                jobForm.ScheduledFor = null;
+            }
+
+            await Api.CreateJob(jobForm);
+            await Toast.ShowSuccess("Job created");
+            CloseModal();
+            await LoadJobs();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to create job: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task DeleteJob(Guid id)
+    {
+        try
+        {
+            await Api.DeleteJob(id);
+            await Toast.ShowSuccess("Job deleted");
+            await LoadJobs();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to delete job: {ex.Message}");
+        }
+    }
+}

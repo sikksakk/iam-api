@@ -1,0 +1,132 @@
+@inject ApiService Api
+@inject ToastService Toast
+
+<div class="tab-content">
+    <div class="tab-header">
+        <h2>Container Registries</h2>
+    </div>
+
+    @if (isLoading)
+    {
+        <p>Loading registries...</p>
+    }
+    else if (registries == null || !registries.Any())
+    {
+        <p>No registries found.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Server</th>
+                    <th>Username</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var reg in registries)
+                {
+                    <tr>
+                        <td>@reg.Name</td>
+                        <td>@reg.Server</td>
+                        <td>@reg.Username</td>
+                        <td>
+                            <button class="delete-btn" @onclick="() => DeleteRegistry(reg.Name)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <div class="add-registry-form">
+        <h3>Add New Registry</h3>
+        <EditForm Model="@newRegistry" OnValidSubmit="CreateRegistry">
+            <DataAnnotationsValidator />
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Name:</label>
+                    <InputText @bind-Value="newRegistry.Name" class="form-control" placeholder="myregistry" />
+                </div>
+                <div class="form-group">
+                    <label>Server:</label>
+                    <InputText @bind-Value="newRegistry.Server" class="form-control" placeholder="myregistry.azurecr.io" />
+                </div>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <InputText @bind-Value="newRegistry.Username" class="form-control" placeholder="username" />
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <InputText @bind-Value="newRegistry.Password" type="password" class="form-control" placeholder="password" />
+                </div>
+            </div>
+            <button type="submit" class="add-btn" disabled="@isSubmitting">Add Registry</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private List<ContainerRegistry> registries = new();
+    private CreateRegistryRequest newRegistry = new();
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRegistries();
+    }
+
+    private async Task LoadRegistries()
+    {
+        isLoading = true;
+        try
+        {
+            registries = await Api.GetRegistries();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load registries: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CreateRegistry()
+    {
+        isSubmitting = true;
+        try
+        {
+            await Api.CreateRegistry(newRegistry);
+            await Toast.ShowSuccess("Registry created");
+            newRegistry = new();
+            await LoadRegistries();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to create registry: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task DeleteRegistry(string name)
+    {
+        try
+        {
+            await Api.DeleteRegistry(name);
+            await Toast.ShowSuccess("Registry deleted");
+            await LoadRegistries();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to delete registry: {ex.Message}");
+        }
+    }
+}

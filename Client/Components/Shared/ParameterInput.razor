@@ -1,0 +1,78 @@
+@code {
+    [Parameter]
+    public Dictionary<string, string> Parameters { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<Dictionary<string, string>> ParametersChanged { get; set; }
+
+    private List<ParameterRow> rows = new();
+
+    protected override void OnInitialized()
+    {
+        if (Parameters != null && Parameters.Any())
+        {
+            rows = Parameters.Select(kvp => new ParameterRow { Key = kvp.Key, Value = kvp.Value }).ToList();
+        }
+        
+        if (!rows.Any())
+        {
+            rows.Add(new ParameterRow());
+        }
+    }
+
+    private void AddRow()
+    {
+        rows.Add(new ParameterRow());
+    }
+
+    private void RemoveRow(ParameterRow row)
+    {
+        rows.Remove(row);
+        if (!rows.Any())
+        {
+            rows.Add(new ParameterRow());
+        }
+        _ = UpdateParameters();
+    }
+
+    private async Task UpdateParameters()
+    {
+        var newParams = rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.Key))
+            .ToDictionary(r => r.Key, r => r.Value ?? "");
+
+        Parameters = newParams;
+        await ParametersChanged.InvokeAsync(newParams);
+    }
+
+    private class ParameterRow
+    {
+        public string Key { get; set; } = "";
+        public string Value { get; set; } = "";
+    }
+}
+
+<div class="parameter-input">
+    @foreach (var row in rows)
+    {
+        <div class="parameter-row">
+            <input type="text" 
+                   placeholder="Key" 
+                   @bind="row.Key" 
+                   @bind:after="UpdateParameters"
+                   class="param-key" />
+            <input type="text" 
+                   placeholder="Value" 
+                   @bind="row.Value" 
+                   @bind:after="UpdateParameters"
+                   class="param-value" />
+            <button type="button" 
+                    class="remove-param-btn" 
+                    @onclick="() => RemoveRow(row)"
+                    disabled="@(rows.Count == 1)">
+                ✖
+            </button>
+        </div>
+    }
+    <button type="button" class="add-param-btn" @onclick="AddRow">➕ Add Parameter</button>
+</div>

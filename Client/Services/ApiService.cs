@@ -1,0 +1,197 @@
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using IamApi.Client.Models;
+using Microsoft.AspNetCore.Components;
+using Blazored.LocalStorage;
+
+namespace IamApi.Client.Services;
+
+public class ApiService
+{
+    private readonly HttpClient _http;
+    private readonly NavigationManager _navigation;
+    private readonly ILocalStorageService _localStorage;
+
+    public ApiService(HttpClient http, NavigationManager navigation, ILocalStorageService localStorage)
+    {
+        _http = http;
+        _navigation = navigation;
+        _localStorage = localStorage;
+    }
+
+    private async Task SetAuthHeader()
+    {
+        var token = await _localStorage.GetItemAsync<string>("jwt_token");
+        if (!string.IsNullOrEmpty(token))
+        {
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+    }
+
+    public async Task<string?> GetToken()
+    {
+        return await _localStorage.GetItemAsync<string>("jwt_token");
+    }
+
+    public async Task SetToken(string token)
+    {
+        await _localStorage.SetItemAsync("jwt_token", token);
+    }
+
+    public async Task RemoveToken()
+    {
+        await _localStorage.RemoveItemAsync("jwt_token");
+    }
+
+    private async Task<T?> HandleResponse<T>(HttpResponseMessage response)
+    {
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            await RemoveToken();
+            _navigation.NavigateTo("/login");
+            return default;
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            return default;
+
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    // Auth
+    public async Task<LoginResponse?> Login(LoginRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("/api/auth/login", request);
+        return await HandleResponse<LoginResponse>(response);
+    }
+
+    public async Task<UserInfo?> GetCurrentUser()
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync("/api/auth/me");
+        return await HandleResponse<UserInfo>(response);
+    }
+
+    // Orchestrators
+    public async Task<List<Orchestrator>?> GetOrchestrators()
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync("/api/orchestrators");
+        return await HandleResponse<List<Orchestrator>>(response);
+    }
+
+    public async Task DeleteOrchestrator(string id)
+    {
+        await SetAuthHeader();
+        var response = await _http.DeleteAsync($"/api/orchestrators/{id}");
+        await HandleResponse<object>(response);
+    }
+
+    public async Task<CleanupResult?> CleanupOrchestrators()
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsync("/api/orchestrators/cleanup", null);
+        return await HandleResponse<CleanupResult>(response);
+    }
+
+    // Jobs
+    public async Task<List<Job>?> GetJobs()
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync("/api/jobs");
+        return await HandleResponse<List<Job>>(response);
+    }
+
+    public async Task<Job?> CreateJob(CreateJobRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsJsonAsync("/api/jobs", request);
+        return await HandleResponse<Job>(response);
+    }
+
+    public async Task DeleteJob(Guid id)
+    {
+        await SetAuthHeader();
+        var response = await _http.DeleteAsync($"/api/jobs/{id}");
+        await HandleResponse<object>(response);
+    }
+
+    // Customers
+    public async Task<List<Customer>?> GetCustomers()
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync("/api/customers");
+        return await HandleResponse<List<Customer>>(response);
+    }
+
+    public async Task<Customer?> GetCustomer(string id)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/customers/{id}");
+        return await HandleResponse<Customer>(response);
+    }
+
+    public async Task<Customer?> CreateCustomer(CreateCustomerRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsJsonAsync("/api/customers", request);
+        return await HandleResponse<Customer>(response);
+    }
+
+    public async Task UpdateCustomer(string id, CreateCustomerRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PutAsJsonAsync($"/api/customers/{id}", request);
+        await HandleResponse<object>(response);
+    }
+
+    public async Task DeleteCustomer(string id)
+    {
+        await SetAuthHeader();
+        var response = await _http.DeleteAsync($"/api/customers/{id}");
+        await HandleResponse<object>(response);
+    }
+
+    // Registries
+    public async Task<List<ContainerRegistry>?> GetRegistries()
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync("/api/registries");
+        return await HandleResponse<List<ContainerRegistry>>(response);
+    }
+
+    public async Task<ContainerRegistry?> CreateRegistry(CreateRegistryRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsJsonAsync("/api/registries", request);
+        return await HandleResponse<ContainerRegistry>(response);
+    }
+
+    public async Task DeleteRegistry(string name)
+    {
+        await SetAuthHeader();
+        var response = await _http.DeleteAsync($"/api/registries/{name}");
+        await HandleResponse<object>(response);
+    }
+
+    // Logs
+    public async Task<List<LogEntry>?> GetLogs(Guid jobId, string? source = null)
+    {
+        await SetAuthHeader();
+        var url = $"/api/logs?jobId={jobId}";
+        if (!string.IsNullOrEmpty(source))
+            url += $"&source={source}";
+        var response = await _http.GetAsync(url);
+        return await HandleResponse<List<LogEntry>>(response);
+    }
+
+    // Certificates
+    public async Task<List<Certificate>?> GetCertificates()
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync("/api/certificates");
+        return await HandleResponse<List<Certificate>>(response);
+    }
+}

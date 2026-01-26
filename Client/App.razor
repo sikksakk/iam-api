@@ -1,0 +1,14 @@
+@namespace IamApi.Client
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(IamApi.Client.Components.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(IamApi.Client.Components.Layout.MainLayout)">
+            <p role="alert">Sorry, there is nothing at this address.</p>
+        </LayoutView>
+    </NotFound>
+</Router>

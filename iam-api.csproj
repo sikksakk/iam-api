@@ -5,14 +5,35 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IamApi</RootNamespace>
+    <RunAOTCompilation>false</RunAOTCompilation>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Client\**" />
+    <Content Remove="Client\**" />
+    <EmbeddedResource Remove="Client\**" />
+    <None Remove="Client\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.13.1" />
+    <PackageReference Include="Blazored.LocalStorage" Version="4.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.2" />
     <PackageReference Include="Microsoft.Graph" Version="5.90.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.6.1" />
   </ItemGroup>
+
+  <Target Name="PublishClientProject" AfterTargets="Build" Condition="'$(SkipClientBuild)' != 'true'">
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectDirectory)\Client\Client.csproj&quot; -c $(Configuration) -o &quot;$(MSBuildProjectDirectory)\Client\bin\publish&quot; --no-restore /p:SkipClientBuild=true" />
+    <ItemGroup>
+      <ClientWwwroot Include="Client\bin\publish\wwwroot\**\*.*" />
+    </ItemGroup>
+    <!-- Copy to output directory -->
+    <Copy SourceFiles="@(ClientWwwroot)" DestinationFolder="$(OutDir)wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <!-- Copy to project wwwroot for dotnet run -->
+    <Copy SourceFiles="@(ClientWwwroot)" DestinationFolder="$(MSBuildProjectDirectory)\wwwroot\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

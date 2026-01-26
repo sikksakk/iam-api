@@ -1,0 +1,92 @@
+@page "/"
+@inject ApiService Api
+@inject NavigationManager Navigation
+@inject ToastService Toast
+@inject IJSRuntime JS
+
+<PageTitle>IAM Dashboard</PageTitle>
+
+<header>
+        <div class="header-content">
+            <h1>🔐 IAM Dashboard</h1>
+            <div class="user-info">
+                <div class="user-name">@username</div>
+                <button class="logout-btn" @onclick="Logout">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="tabs-container">
+        <nav class="tabs">
+            <button class="tab @(activeTab == "orchestrators" ? "active" : "")" @onclick='() => SwitchTab("orchestrators")'>Orchestrators</button>
+            <button class="tab @(activeTab == "jobs" ? "active" : "")" @onclick='() => SwitchTab("jobs")'>Jobs</button>
+            <button class="tab @(activeTab == "customers" ? "active" : "")" @onclick='() => SwitchTab("customers")'>Customers</button>
+            <button class="tab @(activeTab == "registries" ? "active" : "")" @onclick='() => SwitchTab("registries")'>Registries</button>
+            <button class="tab @(activeTab == "logs" ? "active" : "")" @onclick='() => SwitchTab("logs")'>Logs</button>
+            <button class="tab @(activeTab == "certificates" ? "active" : "")" @onclick='() => SwitchTab("certificates")'>Certificates</button>
+        </nav>
+    </div>
+
+    <div class="container">
+        @if (activeTab == "orchestrators")
+        {
+            <OrchestratorTab />
+        }
+        else if (activeTab == "jobs")
+        {
+            <JobsTab />
+        }
+        else if (activeTab == "customers")
+        {
+            <CustomersTab />
+        }
+        else if (activeTab == "registries")
+        {
+            <RegistriesTab />
+        }
+        else if (activeTab == "logs")
+        {
+            <LogsTab />
+        }
+        else if (activeTab == "certificates")
+        {
+            <CertificatesTab />
+        }
+    </div>
+
+@code {
+    private string activeTab = "orchestrators";
+    private string username = "Loading...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await Api.GetToken();
+        if (string.IsNullOrEmpty(token))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            var user = await Api.GetCurrentUser();
+            username = user?.Username ?? "Unknown";
+        }
+        catch
+        {
+            username = "Unknown";
+        }
+    }
+
+    private void SwitchTab(string tab)
+    {
+        activeTab = tab;
+        StateHasChanged();
+    }
+
+    private async Task Logout()
+    {
+        await Api.RemoveToken();
+        Navigation.NavigateTo("/login");
+    }
+}

@@ -2,6 +2,7 @@ using System.Text;
 using IamApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,7 +16,7 @@ if (int.TryParse(inboundPort, out var port) && port > 0)
     builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
-// Add services to the container
+// Add API services
 builder.Services.AddSingleton<IDataStore, InMemoryDataStore>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<ICertificateService, CertificateService>();
@@ -73,7 +74,17 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Add Blazor WebAssembly hosting
+builder.Services.AddRazorPages();
+
 var app = builder.Build();
+
+// Perform certificate cleanup on startup
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+var certificateService = app.Services.GetRequiredService<ICertificateService>();
+logger.LogInformation("Performing certificate cleanup on startup...");
+await certificateService.CleanupExpiredCertificatesAsync();
+logger.LogInformation("Startup certificate cleanup completed");
 
 var enableSwagger = builder.Configuration.GetValue("Swagger:Enabled", builder.Environment.IsDevelopment());
 
@@ -86,12 +97,28 @@ if (enableSwagger)
 
 app.UseForwardedHeaders();
 app.UseCors("AllowAll");
-app.UseStaticFiles();
+
+// Configure static file options to properly serve Blazor WASM files
+var provider = new FileExtensionContentTypeProvider();
+provider.Mappings[".dat"] = "application/octet-stream";
+provider.Mappings[".wasm"] = "application/wasm";
+provider.Mappings[".br"] = "application/octet-stream";
+provider.Mappings[".dll"] = "application/octet-stream";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider,
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream"
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Fallback to index.html for client-side routing, but not for API routes
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.MapGet("/healthz", () => Results.Ok("ok"));
 
@@ -118,65 +145,18 @@ app.MapGet("/debug/managed-identity", async (ILogger<Program> logger) =>
             },
             ["configuration"] = new Dictionary<string, string?>
             {
-                ["EntraId:ManagedIdentityClientId"] = builder.Configuration["EntraId:ManagedIdentityClientId"]
+                ["EntraId:ClientId"] = builder.Configuration["EntraId:ClientId"],
+                ["EntraId:TenantId"] = builder.Configuration["EntraId:TenantId"]
             }
         };
-        
-        // Test token acquisition
-        try
-        {
-            logger.LogDebug("Testing managed identity token acquisition...");
-            var credential = new Azure.Identity.ManagedIdentityCredential();
-            var tokenContext = new Azure.Core.TokenRequestContext(new[] { "https://graph.microsoft.com/.default" });
-            var token = await credential.GetTokenAsync(tokenContext, default);
-            
-            diagnostics["token_test"] = new
-            {
-                success = true,
-                expires_at = token.ExpiresOn.UtcDateTime,
-                token_length = token.Token.Length
-            };
-            logger.LogInformation("✓ Token acquired successfully");
-        }
-        catch (Exception ex)
-        {
-            diagnostics["token_test"] = new
-            {
-                success = false,
-                error = ex.GetType().Name,
-                message = ex.Message
-            };
-            logger.LogError(ex, "✗ Token acquisition failed");
-        }
-        
-        return Results.Json(diagnostics);
+
+        return Results.Ok(diagnostics);
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Diagnostic check failed");
-        return Results.Problem(ex.Message);
+        logger.LogError(ex, "Error during managed identity diagnostics");
+        return Results.Problem(detail: ex.Message, statusCode: 500);
     }
 });
-
-// Default route to redirect to login
-app.MapGet("/", () => Results.Redirect("/login.html"));
-
-// Cleanup expired certificates on startup
-using (var scope = app.Services.CreateScope())
-{
-    var certificateService = scope.ServiceProvider.GetRequiredService<ICertificateService>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    
-    try
-    {
-        logger.LogInformation("Performing certificate cleanup on startup...");
-        await certificateService.CleanupExpiredCertificatesAsync();
-        logger.LogInformation("Startup certificate cleanup completed");
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Failed to cleanup certificates on startup");
-    }
-}
 
 app.Run();

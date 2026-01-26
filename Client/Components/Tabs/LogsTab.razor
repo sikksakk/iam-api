@@ -1,0 +1,111 @@
+@inject ApiService Api
+@inject ToastService Toast
+
+<div class="tab-content">
+    <div class="tab-header">
+        <h2>Logs</h2>
+        <div class="log-selector">
+            <label>Select Job:</label>
+            <select @bind="selectedJobId" @bind:after="LoadLogs" class="form-control">
+                <option value="">-- Select a job --</option>
+                @foreach (var job in jobs)
+                {
+                    <option value="@job.Id">@job.Id - @job.Customer - @job.ContainerImage</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(selectedJobId))
+    {
+        <div class="logs-container">
+            <div class="log-section">
+                <h3>Container Logs</h3>
+                <div class="log-output">
+                    @if (containerLogs == null || !containerLogs.Any())
+                    {
+                        <p>No container logs available.</p>
+                    }
+                    else
+                    {
+                        @foreach (var log in containerLogs.OrderBy(l => l.Timestamp))
+                        {
+                            <div class="log-entry log-@log.Level.ToLower()">
+                                <span class="log-timestamp">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                <span class="log-level">@log.Level</span>
+                                <span class="log-message">@log.Message</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="log-section">
+                <h3>Orchestrator Logs</h3>
+                <div class="log-output">
+                    @if (orchestratorLogs == null || !orchestratorLogs.Any())
+                    {
+                        <p>No orchestrator logs available.</p>
+                    }
+                    else
+                    {
+                        @foreach (var log in orchestratorLogs.OrderBy(l => l.Timestamp))
+                        {
+                            <div class="log-entry log-@log.Level.ToLower()">
+                                <span class="log-timestamp">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                <span class="log-level">@log.Level</span>
+                                <span class="log-message">@log.Message</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Job> jobs = new();
+    private List<LogEntry> containerLogs = new();
+    private List<LogEntry> orchestratorLogs = new();
+    private string selectedJobId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            jobs = await Api.GetJobs() ?? new();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load jobs: {ex.Message}");
+        }
+    }
+
+    private async Task LoadLogs()
+    {
+        if (string.IsNullOrEmpty(selectedJobId))
+        {
+            containerLogs = new();
+            orchestratorLogs = new();
+            return;
+        }
+
+        if (!Guid.TryParse(selectedJobId, out Guid jobGuid))
+        {
+            await Toast.ShowError("Invalid job ID");
+            return;
+        }
+
+        try
+        {
+            var allLogs = await Api.GetLogs(jobGuid) ?? new();
+            containerLogs = allLogs.Where(l => l.Source == "Container").ToList();
+            orchestratorLogs = allLogs.Where(l => l.Source == "Orchestrator").ToList();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load logs: {ex.Message}");
+        }
+    }
+}
