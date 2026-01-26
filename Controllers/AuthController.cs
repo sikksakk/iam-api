@@ -46,4 +46,12 @@ public class AuthController : ControllerBase
         var username = User.Identity?.Name;
         return Ok(new { valid = true, username });
     }
+
+    [HttpGet("me")]
+    [Authorize]
+    public IActionResult GetCurrentUser()
+    {
+        var username = User.Identity?.Name ?? "Unknown";
+        return Ok(new { username });
+    }
 }

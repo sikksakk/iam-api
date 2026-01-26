@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IAM Dashboard</title>
-    <!-- Flatpickr CSS for date/time picker -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -467,6 +465,72 @@
         .hidden {
             display: none !important;
         }
+
+        /* Cron Scheduler Styles */
+        .cron-scheduler {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            background: #f9fafb;
+        }
+
+        .cron-day-selector {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .cron-day-btn {
+            padding: 10px;
+            border: 2px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .cron-day-btn:hover {
+            border-color: #10b981;
+        }
+
+        .cron-day-btn.selected {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+
+        .cron-time-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .cron-time-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cron-time-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .cron-summary {
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            color: #6b7280;
+        }
     </style>
 </head>
 <body>
@@ -571,7 +635,8 @@
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>URL</th>
+                            <th>Server</th>
+                            <th>Username</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -579,9 +644,11 @@
                 </table>
                 <div style="margin-top: 20px;">
                     <h3 style="font-size: 1rem; margin-bottom: 12px;">Add New Registry</h3>
-                    <div style="display: flex; gap: 12px;">
-                        <input type="text" id="registryName" placeholder="Registry Name" style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
-                        <input type="text" id="registryUrl" placeholder="Registry URL" style="flex: 2; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px;">
+                        <input type="text" id="registryName" placeholder="Registry Name" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <input type="text" id="registryServer" placeholder="Server (e.g., myregistry.azurecr.io)" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <input type="text" id="registryUsername" placeholder="Username" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <input type="password" id="registryPassword" placeholder="Password" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
                         <button class="btn-primary" onclick="addRegistry()">Add</button>
                     </div>
                 </div>
@@ -679,9 +746,36 @@
                 </div>
 
                 <div class="form-group hidden" id="scheduleGroup">
-                    <label for="jobScheduledFor">Scheduled Time *</label>
-                    <input type="text" id="jobScheduledFor" placeholder="Select date and time">
-                    <small>Select when this job should run</small>
+                    <label>Schedule *</label>
+                    <div class="cron-scheduler">
+                        <div style="margin-bottom: 12px;">
+                            <strong style="font-size: 0.875rem; color: #374151;">Select Days</strong>
+                            <div class="cron-day-selector" style="margin-top: 8px;">
+                                <button type="button" class="cron-day-btn" data-day="1" onclick="toggleDay(this)">Mon</button>
+                                <button type="button" class="cron-day-btn" data-day="2" onclick="toggleDay(this)">Tue</button>
+                                <button type="button" class="cron-day-btn" data-day="3" onclick="toggleDay(this)">Wed</button>
+                                <button type="button" class="cron-day-btn" data-day="4" onclick="toggleDay(this)">Thu</button>
+                                <button type="button" class="cron-day-btn" data-day="5" onclick="toggleDay(this)">Fri</button>
+                                <button type="button" class="cron-day-btn" data-day="6" onclick="toggleDay(this)">Sat</button>
+                                <button type="button" class="cron-day-btn" data-day="0" onclick="toggleDay(this)">Sun</button>
+                            </div>
+                        </div>
+                        <div>
+                            <strong style="font-size: 0.875rem; color: #374151;">Select Time</strong>
+                            <div class="cron-time-selector" style="margin-top: 8px;">
+                                <div class="cron-time-input">
+                                    <label>Hour:</label>
+                                    <input type="number" id="cronHour" min="0" max="23" value="9" required>
+                                </div>
+                                <div class="cron-time-input">
+                                    <label>Minute:</label>
+                                    <input type="number" id="cronMinute" min="0" max="59" value="0" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cron-summary" id="cronSummary">Select days and time to see schedule preview</div>
+                    </div>
+                    <small>Job will run on selected days at the specified time</small>
                 </div>
 
                 <div class="form-group">
@@ -755,12 +849,8 @@
         </div>
     </div>
 
-    <!-- Flatpickr JS for date/time picker -->
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-
     <script>
         const API_BASE = window.location.origin + '/api';
-        let flatpickrInstance = null;
 
         // Toast Notification System
         function showToast(message, type = 'info', title = '') {
@@ -834,16 +924,6 @@
             }
         }
 
-        // Initialize Flatpickr for date/time picker
-        function initializeDatePicker() {
-            flatpickrInstance = flatpickr("#jobScheduledFor", {
-                enableTime: true,
-                dateFormat: "Y-m-d H:i",
-                time_24hr: true,
-                minDate: "today"
-            });
-        }
-
         // Tab Navigation
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -875,16 +955,23 @@
                     return;
                 }
 
-                tbody.innerHTML = orchestrators.map(o => `
+                tbody.innerHTML = orchestrators.map(o => {
+                    // Calculate status based on last heartbeat (offline if > 2 minutes old)
+                    const lastHeartbeat = new Date(o.lastHeartbeat);
+                    const minutesAgo = (Date.now() - lastHeartbeat.getTime()) / 1000 / 60;
+                    const status = minutesAgo < 2 ? 'online' : 'offline';
+                    
+                    return `
                     <tr>
                         <td>${o.id}</td>
-                        <td><span class="status ${o.status.toLowerCase()}">${o.status}</span></td>
-                        <td>${new Date(o.lastHeartbeat).toLocaleString()}</td>
+                        <td><span class="status ${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
+                        <td>${lastHeartbeat.toLocaleString()}</td>
                         <td>
                             <button class="btn-small danger" onclick="deleteOrchestrator('${o.id}')">Delete</button>
                         </td>
                     </tr>
-                `).join('');
+                    `;
+                }).join('');
             } catch (error) {
                 showToast('Failed to load orchestrators: ' + error.message, 'error');
             }
@@ -976,16 +1063,12 @@
             
             loadCustomersDropdown();
             loadRegistriesDropdown();
-            initializeDatePicker();
+            resetCronScheduler();
             document.getElementById('jobModal').classList.add('active');
         }
 
         function closeJobModal() {
             document.getElementById('jobModal').classList.remove('active');
-            if (flatpickrInstance) {
-                flatpickrInstance.destroy();
-                flatpickrInstance = null;
-            }
         }
 
         function toggleScheduleFields() {
@@ -994,11 +1077,53 @@
             
             if (jobType === 'Scheduled') {
                 scheduleGroup.classList.remove('hidden');
-                document.getElementById('jobScheduledFor').required = true;
+                updateCronSummary();
             } else {
                 scheduleGroup.classList.add('hidden');
-                document.getElementById('jobScheduledFor').required = false;
             }
+        }
+
+        // Cron Scheduler Functions
+        function toggleDay(button) {
+            button.classList.toggle('selected');
+            updateCronSummary();
+        }
+
+        function resetCronScheduler() {
+            document.querySelectorAll('.cron-day-btn').forEach(btn => btn.classList.remove('selected'));
+            document.getElementById('cronHour').value = 9;
+            document.getElementById('cronMinute').value = 0;
+            updateCronSummary();
+        }
+
+        function updateCronSummary() {
+            const selectedDays = Array.from(document.querySelectorAll('.cron-day-btn.selected'))
+                .map(btn => btn.textContent);
+            const hour = document.getElementById('cronHour').value;
+            const minute = document.getElementById('cronMinute').value;
+            
+            const summary = document.getElementById('cronSummary');
+            if (selectedDays.length === 0) {
+                summary.textContent = 'Select at least one day';
+                summary.style.color = '#ef4444';
+            } else {
+                const timeStr = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+                summary.textContent = `Will run on ${selectedDays.join(', ')} at ${timeStr}`;
+                summary.style.color = '#10b981';
+            }
+        }
+
+        function getCronExpression() {
+            const selectedDays = Array.from(document.querySelectorAll('.cron-day-btn.selected'))
+                .map(btn => btn.dataset.day)
+                .sort();
+            const hour = document.getElementById('cronHour').value;
+            const minute = document.getElementById('cronMinute').value;
+            
+            if (selectedDays.length === 0) return null;
+            
+            // Cron format: minute hour * * day-of-week
+            return `${minute} ${hour} * * ${selectedDays.join(',')}`;
         }
 
         function addParameter() {
@@ -1046,7 +1171,7 @@
                 
                 if (registries && registries.length > 0) {
                     registries.forEach(r => {
-                        select.innerHTML += `<option value="${r.name}">${r.name} (${r.url})</option>`;
+                        select.innerHTML += `<option value="${r.name}">${r.name} (${r.server})</option>`;
                     });
                 }
             } catch (error) {
@@ -1077,12 +1202,14 @@
                 whatIfMode: document.getElementById('jobWhatIf').checked
             };
 
-            // Add scheduled time if job is scheduled
+            // Add cron expression if job is scheduled
             if (jobData.jobType === 'Scheduled') {
-                const scheduledFor = document.getElementById('jobScheduledFor').value;
-                if (scheduledFor) {
-                    jobData.scheduledFor = new Date(scheduledFor).toISOString();
+                const cronExpression = getCronExpression();
+                if (!cronExpression) {
+                    showToast('Please select at least one day for the schedule', 'warning');
+                    return;
                 }
+                jobData.cronExpression = cronExpression;
             }
 
             try {
@@ -1214,16 +1341,17 @@
                 const tbody = document.getElementById('registriesTable');
                 
                 if (!registries || registries.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #9ca3af;">No registries found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #9ca3af;">No registries found</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = registries.map(r => `
                     <tr>
                         <td>${r.name}</td>
-                        <td>${r.url}</td>
+                        <td>${r.server}</td>
+                        <td>${r.username || '-'}</td>
                         <td>
-                            <button class="btn-small danger" onclick="deleteRegistry('${r.name}')">Delete</button>
+                            <button class="btn-small danger" onclick="deleteRegistry('${r.id}')">Delete</button>
                         </td>
                     </tr>
                 `).join('');
@@ -1234,33 +1362,37 @@
 
         async function addRegistry() {
             const name = document.getElementById('registryName').value.trim();
-            const url = document.getElementById('registryUrl').value.trim();
+            const server = document.getElementById('registryServer').value.trim();
+            const username = document.getElementById('registryUsername').value.trim();
+            const password = document.getElementById('registryPassword').value.trim();
 
-            if (!name || !url) {
-                showToast('Please enter both name and URL', 'warning');
+            if (!name || !server) {
+                showToast('Please enter at least name and server', 'warning');
                 return;
             }
 
             try {
                 await apiRequest('/registries', {
                     method: 'POST',
-                    body: JSON.stringify({ name, url })
+                    body: JSON.stringify({ name, server, username, password })
                 });
                 
                 showToast('Registry added successfully', 'success');
                 document.getElementById('registryName').value = '';
-                document.getElementById('registryUrl').value = '';
+                document.getElementById('registryServer').value = '';
+                document.getElementById('registryUsername').value = '';
+                document.getElementById('registryPassword').value = '';
                 loadRegistries();
             } catch (error) {
                 showToast('Failed to add registry: ' + error.message, 'error');
             }
         }
 
-        async function deleteRegistry(name) {
-            if (!confirm(`Delete registry ${name}?`)) return;
+        async function deleteRegistry(id) {
+            if (!confirm(`Delete this registry?`)) return;
             
             try {
-                await apiRequest(`/registries/${name}`, { method: 'DELETE' });
+                await apiRequest(`/registries/${id}`, { method: 'DELETE' });
                 showToast('Registry deleted successfully', 'success');
                 loadRegistries();
             } catch (error) {
@@ -1367,6 +1499,12 @@
                 window.location.href = '/login.html';
                 return;
             }
+
+            // Add event listeners for cron time inputs
+            const cronHour = document.getElementById('cronHour');
+            const cronMinute = document.getElementById('cronMinute');
+            if (cronHour) cronHour.addEventListener('input', updateCronSummary);
+            if (cronMinute) cronMinute.addEventListener('input', updateCronSummary);
 
             loadUserInfo();
             loadOrchestrators();
