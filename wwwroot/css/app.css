@@ -741,6 +741,18 @@ td {
     cursor: not-allowed;
 }
 
+.login-version {
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-family: monospace;
+    cursor: default;
+    user-select: none;
+}
+
 .dashboard-footer {
     position: fixed;
     bottom: 0;
