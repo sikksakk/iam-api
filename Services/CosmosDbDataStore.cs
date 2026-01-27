@@ -203,10 +203,13 @@ public class CosmosDbDataStore : IDataStore
         job.CreatedAt = DateTime.UtcNow;
         job.Status = JobStatus.Pending;
         
+        _logger.LogInformation("Creating job {JobId} with status {Status} ({StatusInt})", 
+            job.Id, job.Status, (int)job.Status);
+        
         try
         {
             _jobsContainer.CreateItemAsync(job, new PartitionKey(job.Id.ToString())).GetAwaiter().GetResult();
-            _logger.LogDebug("Job {JobId} created in Cosmos DB", job.Id);
+            _logger.LogInformation("Job {JobId} ({JobName}) created successfully in Cosmos DB", job.Id, job.Name);
             return job;
         }
         catch (Exception ex)
@@ -232,6 +235,8 @@ public class CosmosDbDataStore : IDataStore
 
     public IEnumerable<Job> GetAllJobs()
     {
+        _logger.LogInformation("Querying Cosmos DB for all jobs...");
+        
         var query = new QueryDefinition("SELECT * FROM c ORDER BY c.createdAt DESC");
         var iterator = _jobsContainer.GetItemQueryIterator<Job>(query);
         var jobs = new List<Job>();
@@ -239,16 +244,45 @@ public class CosmosDbDataStore : IDataStore
         while (iterator.HasMoreResults)
         {
             var response = iterator.ReadNextAsync().GetAwaiter().GetResult();
+            _logger.LogDebug("GetAllJobs page returned {Count} jobs", response.Count);
             jobs.AddRange(response);
         }
 
+        _logger.LogInformation("Retrieved {Count} total jobs from Cosmos DB. Status breakdown: {StatusBreakdown}", 
+            jobs.Count,
+            string.Join(", ", jobs.GroupBy(j => j.Status).Select(g => $"{g.Key}={g.Count()}")));
+        
         return jobs;
     }
 
     public IEnumerable<Job> GetPendingJobs()
     {
+        _logger.LogInformation("Querying Cosmos DB for pending jobs...");
+        
+        // First, let's see what all jobs look like
+        try
+        {
+            var allQuery = new QueryDefinition("SELECT c.id, c.name, c.status FROM c");
+            var allIterator = _jobsContainer.GetItemQueryIterator<dynamic>(allQuery);
+            while (allIterator.HasMoreResults)
+            {
+                var allResponse = allIterator.ReadNextAsync().GetAwaiter().GetResult();
+                foreach (var item in allResponse)
+                {
+                    _logger.LogInformation("Job in DB - ID: {Id}, Name: {Name}, Status: {Status} (Type: {Type})", 
+                        item.id, item.name, item.status, item.status?.GetType().Name ?? "null");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to query all jobs for debugging");
+        }
+        
         var query = new QueryDefinition("SELECT * FROM c WHERE c.status = @status ORDER BY c.createdAt ASC")
             .WithParameter("@status", JobStatus.Pending.ToString());
+        
+        _logger.LogInformation("Querying with status = '{Status}'", JobStatus.Pending.ToString());
         
         var iterator = _jobsContainer.GetItemQueryIterator<Job>(query);
         var jobs = new List<Job>();
@@ -256,9 +290,11 @@ public class CosmosDbDataStore : IDataStore
         while (iterator.HasMoreResults)
         {
             var response = iterator.ReadNextAsync().GetAwaiter().GetResult();
+            _logger.LogDebug("Query page returned {Count} jobs (RU: {RU})", response.Count, response.RequestCharge);
             jobs.AddRange(response);
         }
 
+        _logger.LogInformation("Found {Count} pending jobs in Cosmos DB", jobs.Count);
         return jobs;
     }
 
