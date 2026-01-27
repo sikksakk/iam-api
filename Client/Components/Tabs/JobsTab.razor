@@ -33,20 +33,20 @@
             <tbody>
                 @foreach (var job in jobs)
                 {
-                    var statusClass = ((int)job.Status) switch
+                    var statusClass = job.Status switch
                     {
-                        0 => "status-pending",
-                        1 => "status-running",
-                        2 => "status-completed",
-                        3 => "status-failed",
+                        "Pending" => "status-pending",
+                        "Running" => "status-running",
+                        "Completed" => "status-completed",
+                        "Failed" => "status-failed",
                         _ => ""
                     };
-                    var statusText = ((int)job.Status) switch
+                    var statusText = job.Status switch
                     {
-                        0 => "⏳ Pending",
-                        1 => "▶️ Running",
-                        2 => "✓ Completed",
-                        3 => "✗ Failed",
+                        "Pending" => "⏳ Pending",
+                        "Running" => "▶️ Running",
+                        "Completed" => "✓ Completed",
+                        "Failed" => "✗ Failed",
                         _ => "Unknown"
                     };
                     <tr>
