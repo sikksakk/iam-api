@@ -1,5 +1,6 @@
 @inject ApiService Api
 @inject ToastService Toast
+@implements IDisposable
 
 <div class="tab-content">
     <div class="tab-header">
@@ -51,10 +52,26 @@
 @code {
     private List<Certificate> certificates = new();
     private bool isLoading = true;
+    private System.Threading.Timer? refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCertificates();
+        
+        // Auto-refresh every 60 seconds (certificates don't change frequently)
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadCertificates();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(60));
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
     }
 
     private async Task LoadCertificates()
@@ -62,7 +79,7 @@
         isLoading = true;
         try
         {
-            certificates = await Api.GetCertificates();
+            certificates = await Api.GetCertificates() ?? new();
         }
         catch (Exception ex)
         {

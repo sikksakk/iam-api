@@ -1,5 +1,6 @@
 @inject ApiService Api
 @inject ToastService Toast
+@implements IDisposable
 
 <div class="tab-content">
     <div class="tab-header">
@@ -53,10 +54,26 @@
 @code {
     private List<Orchestrator> orchestrators = new();
     private bool isLoading = true;
+    private System.Threading.Timer? refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadOrchestrators();
+        
+        // Auto-refresh every 5 seconds
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadOrchestrators();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
     }
 
     private async Task LoadOrchestrators()
@@ -64,7 +81,7 @@
         isLoading = true;
         try
         {
-            orchestrators = await Api.GetOrchestrators();
+            orchestrators = await Api.GetOrchestrators() ?? new();
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 @inject ApiService Api
 @inject ToastService Toast
+@implements IDisposable
 
 <div class="tab-content">
     <div class="tab-header">
@@ -69,6 +70,7 @@
     private List<LogEntry> containerLogs = new();
     private List<LogEntry> orchestratorLogs = new();
     private string selectedJobId = "";
+    private System.Threading.Timer? refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
@@ -80,6 +82,24 @@
         {
             await Toast.ShowError($"Failed to load jobs: {ex.Message}");
         }
+        
+        // Auto-refresh logs every 10 seconds if a job is selected
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            if (!string.IsNullOrEmpty(selectedJobId))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadLogs();
+                    StateHasChanged();
+                });
+            }
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
     }
 
     private async Task LoadLogs()

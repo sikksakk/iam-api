@@ -84,7 +84,7 @@
         isLoading = true;
         try
         {
-            registries = await Api.GetRegistries();
+            registries = await Api.GetRegistries() ?? new();
         }
         catch (Exception ex)
         {

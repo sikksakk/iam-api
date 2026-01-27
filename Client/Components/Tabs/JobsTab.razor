@@ -1,5 +1,6 @@
 @inject ApiService Api
 @inject ToastService Toast
+@implements IDisposable
 
 <div class="tab-content">
     <div class="tab-header">
@@ -163,10 +164,26 @@
     private bool useRecurring = false;
     private DateTime scheduledForInput = DateTime.Now.AddHours(1);
     private string selectedRegistryName = "";
+    private System.Threading.Timer? refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await Task.WhenAll(LoadJobs(), LoadCustomers(), LoadRegistries());
+        
+        // Auto-refresh every 5 seconds
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadJobs();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
     }
 
     private void OnRegistrySelected()
@@ -185,7 +202,7 @@
         isLoading = true;
         try
         {
-            jobs = await Api.GetJobs();
+            jobs = await Api.GetJobs() ?? new();
         }
         catch (Exception ex)
         {
@@ -201,7 +218,7 @@
     {
         try
         {
-            customers = await Api.GetCustomers();
+            customers = await Api.GetCustomers() ?? new();
         }
         catch (Exception ex)
         {
@@ -213,7 +230,7 @@
     {
         try
         {
-            registries = await Api.GetRegistries();
+            registries = await Api.GetRegistries() ?? new();
         }
         catch (Exception ex)
         {

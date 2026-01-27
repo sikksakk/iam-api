@@ -89,7 +89,7 @@
         isLoading = true;
         try
         {
-            customers = await Api.GetCustomers();
+            customers = await Api.GetCustomers() ?? new();
         }
         catch (Exception ex)
         {

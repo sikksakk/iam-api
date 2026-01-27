@@ -32,7 +32,7 @@ public class VersionController : ControllerBase
                 Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"
             });
         }
-        catch (Exception ex)
+        catch
         {
             return Ok(new VersionInfo
             {
