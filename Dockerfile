@@ -10,12 +10,13 @@ RUN dotnet restore
 COPY Client/Client.csproj Client/
 RUN dotnet restore Client/Client.csproj
 
-# Copy API source and build
+# Copy API source and build (skip automatic client build)
 COPY . .
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish -c Release -o /app/publish /p:SkipClientBuild=true
 
-# Copy Blazor WASM source and build
-RUN dotnet publish Client/Client.csproj -c Release -o /app/publish/wwwroot
+# Build Blazor WASM separately and copy wwwroot to publish output
+RUN dotnet publish Client/Client.csproj -c Release -o /tmp/client-build && \
+    cp -r /tmp/client-build/wwwroot /app/publish/wwwroot
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
