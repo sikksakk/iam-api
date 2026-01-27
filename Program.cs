@@ -18,18 +18,28 @@ if (int.TryParse(inboundPort, out var port) && port > 0)
 
 // Add API services
 // Configure data store - use Cosmos DB if configured, otherwise in-memory
+Console.WriteLine("");
+Console.WriteLine("╔════════════════════════════════════════════════════════════════╗");
+Console.WriteLine("║           DATA STORE CONFIGURATION                             ║");
+Console.WriteLine("╚════════════════════════════════════════════════════════════════╝");
+
 var cosmosConnectionString = builder.Configuration["CosmosDb:ConnectionString"];
 var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"] ?? "IamDb";
 
 // Debug: Log what we found
-Console.WriteLine("=== Data Store Configuration ===");
-Console.WriteLine($"CosmosDb:ConnectionString configured: {!string.IsNullOrEmpty(cosmosConnectionString)}");
 if (!string.IsNullOrEmpty(cosmosConnectionString))
 {
-    Console.WriteLine($"Connection string length: {cosmosConnectionString.Length} characters");
-    Console.WriteLine($"Database name: {cosmosDatabaseName}");
+    Console.WriteLine($"✓ Cosmos DB connection string: CONFIGURED ({cosmosConnectionString.Length} chars)");
+    Console.WriteLine($"✓ Database name: {cosmosDatabaseName}");
+    Console.WriteLine($"→ Data persistence: ENABLED");
 }
-Console.WriteLine("================================");
+else
+{
+    Console.WriteLine($"✗ Cosmos DB connection string: NOT CONFIGURED");
+    Console.WriteLine($"→ Data persistence: DISABLED (using in-memory storage)");
+    Console.WriteLine($"→ To enable: Set CosmosDb__ConnectionString environment variable");
+}
+Console.WriteLine("");
 
 if (!string.IsNullOrEmpty(cosmosConnectionString))
 {
@@ -39,12 +49,10 @@ if (!string.IsNullOrEmpty(cosmosConnectionString))
         return new CosmosDbDataStore(logger, cosmosConnectionString, cosmosDatabaseName);
     });
     builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Information);
-    Console.WriteLine($"✓ Using Cosmos DB data store (Database: {cosmosDatabaseName})");
 }
 else
 {
     builder.Services.AddSingleton<IDataStore, InMemoryDataStore>();
-    Console.WriteLine("⚠ Using IN-MEMORY data store (data will not persist). Configure CosmosDb:ConnectionString to use Cosmos DB.");
 }
 
 builder.Services.AddSingleton<IAuthService, AuthService>();

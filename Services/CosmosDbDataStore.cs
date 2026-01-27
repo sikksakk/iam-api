@@ -165,11 +165,14 @@ public class CosmosDbDataStore : IDataStore
                 PartitionKeyPath = partitionKeyPath
             };
 
-            var response = await _database.CreateContainerIfNotExistsAsync(containerProperties, throughput: 400);
+            // Don't specify throughput - works for both serverless and provisioned accounts
+            // Serverless: Auto-scales (throughput not allowed)
+            // Provisioned: Uses database-level throughput or defaults to minimum (400 RU/s)
+            var response = await _database.CreateContainerIfNotExistsAsync(containerProperties);
             
             if (response.StatusCode == HttpStatusCode.Created)
             {
-                _logger.LogInformation("  ✓ Container '{ContainerName}' created (Partition: {PartitionKey}, Throughput: 400 RU/s, Cost: {RU} RU)", 
+                _logger.LogInformation("  ✓ Container '{ContainerName}' created (Partition: {PartitionKey}, Cost: {RU} RU)", 
                     containerName, partitionKeyPath, response.RequestCharge);
             }
             else if (response.StatusCode == HttpStatusCode.OK)
