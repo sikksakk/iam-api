@@ -26,6 +26,10 @@ public class ApiService
         {
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
+        else
+        {
+            Console.WriteLine("Warning: No JWT token found in local storage");
+        }
     }
 
     public async Task<string?> GetToken()
