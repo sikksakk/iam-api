@@ -201,12 +201,17 @@ public class ApiService
         try
         {
             var response = await _http.GetAsync("/api/version");
-            var versionInfo = await response.Content.ReadFromJsonAsync<VersionInfo>();
-            return versionInfo?.Version ?? "1.0.0";
+            if (response.IsSuccessStatusCode)
+            {
+                var versionInfo = await response.Content.ReadFromJsonAsync<VersionInfo>();
+                return versionInfo?.Version ?? "unknown";
+            }
+            return "unknown";
         }
-        catch
+        catch (Exception ex)
         {
-            return "1.0.0";
+            Console.WriteLine($"Version fetch error: {ex.Message}");
+            return "unknown";
         }
     }
 }

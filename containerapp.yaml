@@ -1,0 +1,138 @@
+id: /subscriptions/ba345d34-f8c3-47ae-bc1c-b45b3e27da21/resourceGroups/chris-mcr/providers/Microsoft.App/containerapps/iam-api
+identity:
+  type: UserAssigned
+  userAssignedIdentities:
+    ? /subscriptions/ba345d34-f8c3-47ae-bc1c-b45b3e27da21/resourcegroups/chris-mcr/providers/Microsoft.ManagedIdentity/userAssignedIdentities/iam-api
+    : clientId: 75a0841f-dcca-4fa3-b5c3-2ac249d234b3
+      principalId: b94119d4-d860-4ef7-96f6-0d31c9dfcd38
+location: Norway East
+name: iam-api
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    dapr: null
+    identitySettings: []
+    ingress:
+      additionalPortMappings: null
+      allowInsecure: true
+      clientCertificateMode: Ignore
+      corsPolicy: null
+      customDomains: null
+      exposedPort: 0
+      external: true
+      fqdn: iam-api.jollybush-7b764ae8.norwayeast.azurecontainerapps.io
+      ipSecurityRestrictions: null
+      stickySessions:
+        affinity: none
+      targetPort: 80
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: Auto
+    maxInactiveRevisions: 100
+    registries:
+    - identity: /subscriptions/ba345d34-f8c3-47ae-bc1c-b45b3e27da21/resourcegroups/chris-mcr/providers/Microsoft.ManagedIdentity/userAssignedIdentities/iam-api
+      passwordSecretRef: ''
+      server: fortytwoiam.azurecr.io
+      username: ''
+    runtime: {}
+    secrets: null
+    service: null
+  customDomainVerificationId: 9E2A22C3348B4CD585A303322CFA4D0B2689B03441E3158F1E7B46D2A3C4D7EA
+  delegatedIdentities: []
+  environmentId: /subscriptions/ba345d34-f8c3-47ae-bc1c-b45b3e27da21/resourceGroups/chris-mcr/providers/Microsoft.App/managedEnvironments/managedEnvironment-chrismcr-aa76
+  eventStreamEndpoint: https://norwayeast.azurecontainerapps.dev/subscriptions/ba345d34-f8c3-47ae-bc1c-b45b3e27da21/resourceGroups/chris-mcr/containerApps/iam-api/eventstream
+  latestReadyRevisionName: iam-api--0000003
+  latestRevisionFqdn: iam-api--0000003.jollybush-7b764ae8.norwayeast.azurecontainerapps.io
+  latestRevisionName: iam-api--0000003
+  managedEnvironmentId: /subscriptions/ba345d34-f8c3-47ae-bc1c-b45b3e27da21/resourceGroups/chris-mcr/providers/Microsoft.App/managedEnvironments/managedEnvironment-chrismcr-aa76
+  outboundIpAddresses:
+  - 20.100.160.69
+  - 20.100.161.41
+  - 131.163.63.54
+  - 131.163.70.106
+  - 131.163.63.79
+  - 131.163.63.117
+  - 131.163.70.196
+  - 4.177.14.212
+  - 131.163.30.150
+  - 131.163.60.58
+  - 131.163.39.145
+  - 131.163.30.140
+  - 20.100.160.237
+  - 20.100.160.170
+  - 20.251.136.124
+  - 20.251.136.153
+  - 20.251.137.50
+  - 20.251.136.71
+  - 4.235.12.149
+  - 4.235.15.242
+  - 20.100.130.166
+  - 20.100.130.215
+  - 4.177.15.121
+  - 4.177.15.106
+  - 4.177.15.134
+  - 4.177.13.15
+  - 131.163.30.101
+  - 20.251.241.195
+  - 20.251.179.124
+  - 20.251.241.236
+  - 20.100.131.28
+  - 20.100.129.237
+  - 4.235.9.181
+  - 4.235.12.137
+  - 4.235.12.142
+  - 4.235.11.102
+  - 4.235.10.119
+  - 4.235.12.232
+  - 4.220.28.93
+  provisioningState: Succeeded
+  runningStatus: Running
+  template:
+    containers:
+    - env:
+      - name: EntraId__TenantId
+        value: bb73082a-b74c-4d39-aec0-41c77d6f4850
+      - name: EntraId__ApplicationObjectId
+        value: 0e9ceefa-7dd6-4733-a5ee-cc7d093a80cc
+      - name: EntraId__ManagedIdentityClientId
+        value: 75a0841f-dcca-4fa3-b5c3-2ac249d234b3
+      image: fortytwoiam.azurecr.io/sikksakk/iam-api/iam-api:latest
+      name: iam-api
+      probes:
+      - type: Startup
+        httpGet:
+          path: /healthz
+          port: 80
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 2
+        timeoutSeconds: 5
+        failureThreshold: 30
+      resources:
+        cpu: 0.5
+        ephemeralStorage: 2Gi
+        memory: 1Gi
+    initContainers: null
+    revisionSuffix: ''
+    scale:
+      cooldownPeriod: 300
+      maxReplicas: 1
+      minReplicas: 1
+      pollingInterval: 30
+      rules: null
+    serviceBinds: null
+    terminationGracePeriodSeconds: null
+    volumes: []
+  workloadProfileName: Consumption
+resourceGroup: chris-mcr
+systemData:
+  createdAt: '2026-01-22T21:46:40.3345505'
+  createdBy: christopher.thomsen@fortytwo.io
+  createdByType: User
+  lastModifiedAt: '2026-01-24T20:38:53.8047689'
+  lastModifiedBy: christopher.thomsen@fortytwo.io
+  lastModifiedByType: User
+tags:
+  deletiondate: '2026-03-01'
+type: Microsoft.App/containerApps
