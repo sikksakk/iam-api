@@ -22,8 +22,9 @@
                 <tr>
                     <th>ID</th>
                     <th>Customer</th>
+                    <th>Name</th>
+                    <th>Status</th>
                     <th>Image</th>
-                    <th>Registry</th>
                     <th>Schedule</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -32,11 +33,28 @@
             <tbody>
                 @foreach (var job in jobs)
                 {
+                    var statusClass = job.Status switch
+                    {
+                        0 => "status-pending",
+                        1 => "status-running",
+                        2 => "status-completed",
+                        3 => "status-failed",
+                        _ => ""
+                    };
+                    var statusText = job.Status switch
+                    {
+                        0 => "⏳ Pending",
+                        1 => "▶️ Running",
+                        2 => "✓ Completed",
+                        3 => "✗ Failed",
+                        _ => "Unknown"
+                    };
                     <tr>
                         <td>@job.Id.ToString().Substring(0, 8)</td>
                         <td>@job.Customer</td>
+                        <td>@job.Name</td>
+                        <td><span class="status-badge @statusClass">@statusText</span></td>
                         <td>@job.ContainerImage</td>
-                        <td>@job.RegistryServer</td>
                         <td>@(job.Schedule ?? "One-time")</td>
                         <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
