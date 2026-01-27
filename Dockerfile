@@ -7,16 +7,15 @@ COPY iam-api.csproj .
 RUN dotnet restore
 
 # Copy Blazor WASM project file and restore
-COPY ../iam-web/iam-web.csproj ../iam-web/
-RUN dotnet restore ../iam-web/iam-web.csproj
+COPY Client/Client.csproj Client/
+RUN dotnet restore Client/Client.csproj
 
 # Copy API source and build
 COPY . .
 RUN dotnet publish -c Release -o /app/publish
 
 # Copy Blazor WASM source and build
-COPY ../iam-web ../iam-web
-RUN dotnet publish ../iam-web/iam-web.csproj -c Release -o /app/publish/wwwroot
+RUN dotnet publish Client/Client.csproj -c Release -o /app/publish/wwwroot
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
