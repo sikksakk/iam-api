@@ -17,7 +17,8 @@ RUN dotnet restore Client/Client.csproj
 
 # Copy API source and build (skip automatic client build)
 COPY . .
-RUN echo "$GIT_COMMIT" > /src/version.txt && \
+RUN SHORT_COMMIT=$(echo "$GIT_COMMIT" | cut -c1-7) && \
+    echo "$SHORT_COMMIT" > /src/version.txt && \
     dotnet publish -c Release -o /app/publish /p:SkipClientBuild=true
 
 # Build Blazor WASM separately and copy wwwroot to publish output
