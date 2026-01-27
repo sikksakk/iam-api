@@ -21,6 +21,16 @@ if (int.TryParse(inboundPort, out var port) && port > 0)
 var cosmosConnectionString = builder.Configuration["CosmosDb:ConnectionString"];
 var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"] ?? "IamDb";
 
+// Debug: Log what we found
+Console.WriteLine("=== Data Store Configuration ===");
+Console.WriteLine($"CosmosDb:ConnectionString configured: {!string.IsNullOrEmpty(cosmosConnectionString)}");
+if (!string.IsNullOrEmpty(cosmosConnectionString))
+{
+    Console.WriteLine($"Connection string length: {cosmosConnectionString.Length} characters");
+    Console.WriteLine($"Database name: {cosmosDatabaseName}");
+}
+Console.WriteLine("================================");
+
 if (!string.IsNullOrEmpty(cosmosConnectionString))
 {
     builder.Services.AddSingleton<IDataStore>(sp =>
