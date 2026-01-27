@@ -22,36 +22,6 @@ public class CertificatesController : ControllerBase
     }
 
     /// <summary>
-    /// Get or create a certificate for a specific customer
-    /// </summary>
-    [HttpGet("{customerName}")]
-    public async Task<ActionResult<CertificateResponse>> GetCertificate(string customerName)
-    {
-        if (string.IsNullOrWhiteSpace(customerName))
-        {
-            return BadRequest("Customer name is required");
-        }
-
-        _logger.LogInformation("Certificate request received for customer: {Customer}", customerName);
-
-        var certificate = await _certificateService.GetOrCreateCertificateAsync(customerName);
-        
-        if (certificate == null)
-        {
-            _logger.LogWarning("Failed to create certificate for {Customer}. Check configuration and logs.", customerName);
-            return StatusCode(500, new 
-            { 
-                error = "Failed to create certificate",
-                message = "Certificate creation failed. This may be due to missing Entra ID configuration (EntraId:ClientId, EntraId:TenantId) or insufficient permissions. Check API logs for details."
-            });
-        }
-
-        _logger.LogInformation("Certificate retrieved successfully for customer: {Customer}, expires: {ExpiresAt}", 
-            customerName, certificate.ExpiresAt);
-        return Ok(certificate);
-    }
-
-    /// <summary>
     /// Get all active certificates
     /// </summary>
     [HttpGet]
@@ -80,5 +50,35 @@ public class CertificatesController : ControllerBase
     {
         await _certificateService.CleanupExpiredCertificatesAsync();
         return Ok(new { message = "Cleanup completed" });
+    }
+
+    /// <summary>
+    /// Get or create a certificate for a specific customer
+    /// </summary>
+    [HttpGet("{customerName}")]
+    public async Task<ActionResult<CertificateResponse>> GetCertificate(string customerName)
+    {
+        if (string.IsNullOrWhiteSpace(customerName))
+        {
+            return BadRequest("Customer name is required");
+        }
+
+        _logger.LogInformation("Certificate request received for customer: {Customer}", customerName);
+
+        var certificate = await _certificateService.GetOrCreateCertificateAsync(customerName);
+        
+        if (certificate == null)
+        {
+            _logger.LogWarning("Failed to create certificate for {Customer}. Check configuration and logs.", customerName);
+            return StatusCode(500, new 
+            { 
+                error = "Failed to create certificate",
+                message = "Certificate creation failed. This may be due to missing Entra ID configuration (EntraId:ClientId, EntraId:TenantId) or insufficient permissions. Check API logs for details."
+            });
+        }
+
+        _logger.LogInformation("Certificate retrieved successfully for customer: {Customer}, expires: {ExpiresAt}", 
+            customerName, certificate.ExpiresAt);
+        return Ok(certificate);
     }
 }
