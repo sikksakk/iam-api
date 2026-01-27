@@ -58,6 +58,24 @@ public class OrchestratorsController : ControllerBase
         return Ok();
     }
 
+    [HttpPost("cleanup")]
+    public ActionResult CleanupOfflineOrchestrators([FromQuery] int minutesThreshold = 5)
+    {
+        var threshold = DateTime.UtcNow.AddMinutes(-minutesThreshold);
+        var allOrchestrators = _dataStore.GetOrchestrators();
+        var offlineOrchestrators = allOrchestrators.Where(o => o.LastHeartbeat < threshold).ToList();
+        
+        foreach (var orchestrator in offlineOrchestrators)
+        {
+            _dataStore.RemoveOrchestrator(orchestrator.Id);
+        }
+        
+        _logger.LogInformation("Cleaned up {Count} offline orchestrators (threshold: {Minutes} minutes)", 
+            offlineOrchestrators.Count, minutesThreshold);
+        
+        return Ok(new { removed = offlineOrchestrators.Count, threshold = minutesThreshold });
+    }
+
     [HttpDelete("{id}")]
     public ActionResult DeleteOrchestrator(string id)
     {
