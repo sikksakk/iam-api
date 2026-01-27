@@ -10,23 +10,35 @@ public class VersionController : ControllerBase
     [HttpGet]
     public ActionResult<VersionInfo> GetVersion()
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var buildDate = System.IO.File.GetLastWriteTimeUtc(assembly.Location);
-        
-        // Read Git commit hash from version file
-        var version = "1.0.0";
-        var versionFile = Path.Combine(AppContext.BaseDirectory, "version.txt");
-        if (System.IO.File.Exists(versionFile))
+        try
         {
-            version = System.IO.File.ReadAllText(versionFile).Trim();
+            var assembly = Assembly.GetExecutingAssembly();
+            var buildDate = System.IO.File.GetLastWriteTimeUtc(assembly.Location);
+            
+            // Read Git commit hash from version file
+            var version = "1.0.0";
+            var versionFile = Path.Combine(AppContext.BaseDirectory, "version.txt");
+            if (System.IO.File.Exists(versionFile))
+            {
+                version = System.IO.File.ReadAllText(versionFile).Trim();
+            }
+            
+            return Ok(new VersionInfo
+            {
+                Version = version,
+                BuildDate = buildDate,
+                Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"
+            });
         }
-        
-        return Ok(new VersionInfo
+        catch (Exception ex)
         {
-            Version = version,
-            BuildDate = buildDate,
-            Environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"
-        });
+            return Ok(new VersionInfo
+            {
+                Version = "1.0.0",
+                BuildDate = DateTime.UtcNow,
+                Environment = "Unknown"
+            });
+        }
     }
 }
 
