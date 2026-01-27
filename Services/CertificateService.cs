@@ -537,17 +537,14 @@ public class CertificateService : ICertificateService
     {
         var allCerts = new List<CustomerCertificate>();
         
-        // Add in-memory certificates
-        allCerts.AddRange(_certificates.Values);
-        
-        // Try to fetch from Azure AD
+        // Try to fetch from Entra ID (source of truth)
         try
         {
             var applicationObjectId = _configuration["EntraId:ApplicationObjectId"];
             if (string.IsNullOrEmpty(applicationObjectId))
             {
                 _logger.LogDebug("ApplicationObjectId not configured, returning only in-memory certificates");
-                return allCerts;
+                return _certificates.Values.ToList();
             }
 
             var graphClient = GetGraphClient();
@@ -555,32 +552,60 @@ public class CertificateService : ICertificateService
             
             if (application?.KeyCredentials != null)
             {
+                // Synchronize: Remove any in-memory certificates that don't exist in Entra ID
+                await _certificateLock.WaitAsync();
+                try
+                {
+                    var entraKeyIds = application.KeyCredentials
+                        .Where(kc => kc.KeyId.HasValue)
+                        .Select(kc => kc.KeyId!.Value.ToString())
+                        .ToHashSet();
+                    
+                    var orphanedCerts = _certificates
+                        .Where(kvp => !string.IsNullOrEmpty(kvp.Value.KeyId) && !entraKeyIds.Contains(kvp.Value.KeyId))
+                        .Select(kvp => kvp.Key)
+                        .ToList();
+                    
+                    foreach (var orphanedKey in orphanedCerts)
+                    {
+                        _logger.LogInformation("Removing orphaned in-memory certificate for {Customer} - no longer exists in Entra ID", orphanedKey);
+                        _certificates.Remove(orphanedKey);
+                    }
+                }
+                finally
+                {
+                    _certificateLock.Release();
+                }
+                
+                // Build list from Entra ID certificates (source of truth)
                 foreach (var keyCred in application.KeyCredentials)
                 {
-                    // Check if this certificate is already in our in-memory cache
-                    var existingCert = allCerts.FirstOrDefault(c => c.KeyId == keyCred.KeyId.ToString());
-                    if (existingCert == null && keyCred.EndDateTime.HasValue)
+                    if (!keyCred.EndDateTime.HasValue) continue;
+                    
+                    var keyId = keyCred.KeyId?.ToString() ?? string.Empty;
+                    
+                    // Try to get certificate data from in-memory cache
+                    var cachedCert = _certificates.Values.FirstOrDefault(c => c.KeyId == keyId);
+                    
+                    allCerts.Add(new CustomerCertificate
                     {
-                        // Add certificate from Azure AD that's not in our cache
-                        allCerts.Add(new CustomerCertificate
-                        {
-                            CustomerName = keyCred.DisplayName ?? "Unknown",
-                            Thumbprint = keyCred.CustomKeyIdentifier != null ? 
-                                BitConverter.ToString(keyCred.CustomKeyIdentifier).Replace("-", "") : "N/A",
-                            KeyId = keyCred.KeyId?.ToString() ?? string.Empty,
-                            CreatedAt = keyCred.StartDateTime?.DateTime ?? DateTime.UtcNow,
-                            ExpiresAt = keyCred.EndDateTime.Value.DateTime,
-                            CertificateData = string.Empty // Certificate data not available from Azure AD
-                        });
-                    }
+                        CustomerName = keyCred.DisplayName ?? "Unknown",
+                        Thumbprint = keyCred.CustomKeyIdentifier != null ? 
+                            BitConverter.ToString(keyCred.CustomKeyIdentifier).Replace("-", "") : "N/A",
+                        KeyId = keyId,
+                        CreatedAt = keyCred.StartDateTime?.DateTime ?? DateTime.UtcNow,
+                        ExpiresAt = keyCred.EndDateTime.Value.DateTime,
+                        CertificateData = cachedCert?.CertificateData ?? string.Empty // Use cached data if available
+                    });
                 }
             }
             
-            _logger.LogDebug("Retrieved {Count} certificates from Azure AD", application?.KeyCredentials?.Count ?? 0);
+            _logger.LogDebug("Retrieved {Count} certificates from Entra ID", application?.KeyCredentials?.Count ?? 0);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to retrieve certificates from Azure AD, returning only in-memory certificates");
+            _logger.LogWarning(ex, "Failed to retrieve certificates from Entra ID, returning only in-memory certificates");
+            return _certificates.Values.ToList();
         }
         
         return allCerts.OrderByDescending(c => c.CreatedAt).ToList();
