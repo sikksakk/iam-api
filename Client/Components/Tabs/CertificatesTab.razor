@@ -4,6 +4,7 @@
 <div class="tab-content">
     <div class="tab-header">
         <h2>Certificates</h2>
+        <button class="btn-secondary" @onclick="CleanupExpired">🗑️ Cleanup Expired</button>
     </div>
 
     @if (isLoading)
@@ -70,6 +71,20 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task CleanupExpired()
+    {
+        try
+        {
+            await Api.CleanupExpiredCertificates();
+            await Toast.ShowSuccess("Expired certificates cleaned up");
+            await LoadCertificates();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to cleanup: {ex.Message}");
         }
     }
 }

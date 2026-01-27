@@ -40,6 +40,8 @@
                         <td>@(job.Schedule ?? "One-time")</td>
                         <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
+                            <button class="btn-secondary" @onclick="() => CopyJob(job)">Copy</button>
+                            <button class="btn-primary" @onclick="() => RetryJob(job)">Retry</button>
                             <button class="delete-btn" @onclick="() => DeleteJob(job.Id)">Delete</button>
                         </td>
                     </tr>
@@ -265,6 +267,56 @@
         catch (Exception ex)
         {
             await Toast.ShowError($"Failed to delete job: {ex.Message}");
+        }
+    }
+
+    private void CopyJob(Job job)
+    {
+        jobForm = new CreateJobRequest
+        {
+            Name = $"{job.Name} (Copy)",
+            Customer = job.Customer,
+            ScriptPath = job.ScriptPath,
+            ContainerImage = job.ContainerImage,
+            RegistryServer = job.RegistryServer,
+            RegistryUsername = job.RegistryUsername,
+            RegistryPassword = job.RegistryPassword,
+            JobType = job.JobType,
+            IsWhatIf = job.IsWhatIf,
+            Schedule = job.Schedule,
+            Parameters = new Dictionary<string, string>(job.Parameters)
+        };
+        
+        useRecurring = !string.IsNullOrEmpty(job.Schedule);
+        showModal = true;
+    }
+
+    private async Task RetryJob(Job job)
+    {
+        try
+        {
+            var retryRequest = new CreateJobRequest
+            {
+                Name = $"{job.Name} (Retry)",
+                Customer = job.Customer,
+                ScriptPath = job.ScriptPath,
+                ContainerImage = job.ContainerImage,
+                RegistryServer = job.RegistryServer,
+                RegistryUsername = job.RegistryUsername,
+                RegistryPassword = job.RegistryPassword,
+                JobType = job.JobType,
+                IsWhatIf = job.IsWhatIf,
+                Schedule = null,  // One-time retry
+                Parameters = new Dictionary<string, string>(job.Parameters)
+            };
+            
+            await Api.CreateJob(retryRequest);
+            await Toast.ShowSuccess("Job retry created");
+            await LoadJobs();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to retry job: {ex.Message}");
         }
     }
 }

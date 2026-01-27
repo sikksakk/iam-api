@@ -199,6 +199,13 @@ public class ApiService
         return await HandleResponse<List<Certificate>>(response);
     }
 
+    public async Task CleanupExpiredCertificates()
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsync("/api/certificates/cleanup", null);
+        await HandleResponse<object>(response);
+    }
+
     // Version
     public async Task<string> GetBuildVersion()
     {

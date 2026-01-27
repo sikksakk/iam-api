@@ -477,18 +477,54 @@ public class CertificateService : ICertificateService
         try
         {
             var now = DateTime.UtcNow;
-            var expiredCerts = _certificates.Where(kvp => kvp.Value.ExpiresAt < now).ToList();
+            
+            // Clean up in-memory certificates
+            var expiredInMemory = _certificates.Where(kvp => kvp.Value.ExpiresAt < now).ToList();
 
-            foreach (var expired in expiredCerts)
+            foreach (var expired in expiredInMemory)
             {
-                _logger.LogInformation("Cleaning up expired certificate for {Customer}", expired.Key);
+                _logger.LogInformation("Cleaning up expired in-memory certificate for {Customer}", expired.Key);
                 await DeleteCertificateFromAzureAsync(expired.Value.KeyId);
                 _certificates.Remove(expired.Key);
             }
 
-            if (expiredCerts.Any())
+            if (expiredInMemory.Any())
             {
-                _logger.LogInformation("Cleaned up {Count} expired certificates", expiredCerts.Count);
+                _logger.LogInformation("Cleaned up {Count} expired in-memory certificates", expiredInMemory.Count);
+            }
+            
+            // Clean up expired certificates from Entra ID
+            try
+            {
+                var applicationObjectId = _configuration["EntraId:ApplicationObjectId"];
+                if (!string.IsNullOrEmpty(applicationObjectId))
+                {
+                    var graphClient = GetGraphClient();
+                    var application = await graphClient.Applications[applicationObjectId].GetAsync();
+                    
+                    if (application?.KeyCredentials != null)
+                    {
+                        var expiredFromAzure = application.KeyCredentials
+                            .Where(kc => kc.EndDateTime.HasValue && kc.EndDateTime.Value.DateTime < now)
+                            .ToList();
+                        
+                        foreach (var expiredCert in expiredFromAzure)
+                        {
+                            _logger.LogInformation("Removing expired certificate from Entra ID: {DisplayName} (expires: {ExpiresAt})", 
+                                expiredCert.DisplayName, expiredCert.EndDateTime);
+                            await DeleteCertificateFromAzureAsync(expiredCert.KeyId?.ToString() ?? "");
+                        }
+                        
+                        if (expiredFromAzure.Any())
+                        {
+                            _logger.LogInformation("Cleaned up {Count} expired certificates from Entra ID", expiredFromAzure.Count);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cleanup expired certificates from Entra ID");
             }
         }
         finally
