@@ -38,15 +38,23 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<Customer> CreateCustomer([FromBody] Customer customer)
+    public ActionResult<Customer> CreateCustomer([FromBody] CreateCustomerRequest request)
     {
-        if (string.IsNullOrWhiteSpace(customer.Name))
+        if (string.IsNullOrWhiteSpace(request.Name))
         {
             return BadRequest("Customer name is required");
         }
 
-        customer.Id = Guid.NewGuid().ToString();
-        customer.CreatedAt = DateTime.UtcNow;
+        var customer = new Customer
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = request.Name,
+            Description = request.Description ?? string.Empty,
+            ContactEmail = request.ContactEmail,
+            DefaultRegistry = request.DefaultRegistry,
+            DefaultContainerImage = request.DefaultContainerImage,
+            CreatedAt = DateTime.UtcNow
+        };
         
         _dataStore.AddCustomer(customer);
         _logger.LogInformation("Customer created: {CustomerName}", customer.Name);
@@ -55,7 +63,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public ActionResult<Customer> UpdateCustomer(string id, [FromBody] Customer customer)
+    public ActionResult<Customer> UpdateCustomer(string id, [FromBody] CreateCustomerRequest request)
     {
         var existing = _dataStore.GetCustomer(id);
         if (existing == null)
@@ -63,14 +71,22 @@ public class CustomersController : ControllerBase
             return NotFound();
         }
 
-        customer.Id = id;
-        customer.CreatedAt = existing.CreatedAt;
-        customer.UpdatedAt = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest("Customer name is required");
+        }
+
+        existing.Name = request.Name;
+        existing.Description = request.Description ?? string.Empty;
+        existing.ContactEmail = request.ContactEmail;
+        existing.DefaultRegistry = request.DefaultRegistry;
+        existing.DefaultContainerImage = request.DefaultContainerImage;
+        existing.UpdatedAt = DateTime.UtcNow;
         
-        _dataStore.UpdateCustomer(customer);
-        _logger.LogInformation("Customer updated: {CustomerName}", customer.Name);
+        _dataStore.UpdateCustomer(existing);
+        _logger.LogInformation("Customer updated: {CustomerName}", existing.Name);
         
-        return Ok(customer);
+        return Ok(existing);
     }
 
     [HttpDelete("{id}")]

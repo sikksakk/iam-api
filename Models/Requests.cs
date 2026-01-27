@@ -22,3 +22,12 @@ public class CreateLogRequest
     public LogLevel Level { get; set; }
     public string? Source { get; set; }
 }
+
+public class CreateCustomerRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? ContactEmail { get; set; }
+    public string? DefaultRegistry { get; set; }
+    public string? DefaultContainerImage { get; set; }
+}
