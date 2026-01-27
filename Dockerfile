@@ -25,13 +25,13 @@ WORKDIR /app
 # Copy published app
 COPY --from=build /app/publish .
 
-# Expose port 8080 for Azure App Service (set WEBSITES_PORT=8080 in App Settings)
-EXPOSE 8080
+# Expose port 80 for Azure Container Apps
+EXPOSE 80
 
 # Default listening port inside the container
-ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_URLS=http://+:80
 
-# App Service runs behind a reverse proxy; trust forwarded headers.
+# Container Apps runs behind a reverse proxy; trust forwarded headers.
 ENV ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
 
 ENTRYPOINT ["dotnet", "iam-api.dll"]
