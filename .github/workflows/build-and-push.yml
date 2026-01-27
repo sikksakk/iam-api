@@ -57,6 +57,8 @@ jobs:
         file: Dockerfile
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ steps.tags.outputs.tags }}
+        build-args: |
+          GIT_COMMIT=${{ github.sha }}
         
     - name: Summary
       if: github.event_name != 'pull_request'
