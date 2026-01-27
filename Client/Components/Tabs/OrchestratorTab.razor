@@ -78,11 +78,15 @@
 
     private (bool isAlive, string text, string cssClass) GetStatus(Orchestrator orch)
     {
-        var diff = DateTime.Now - orch.LastHeartbeat;
-        if (diff.TotalMinutes < 2)
+        var diff = DateTime.UtcNow - orch.LastHeartbeat;
+        
+        // Use IsOnline from API if available, otherwise calculate
+        var isOnline = orch.IsOnline ?? (diff.TotalMinutes < 1);
+        
+        if (isOnline)
             return (true, "Alive", "status-alive");
         if (diff.TotalMinutes < 5)
-            return (true, "Stale", "status-stale");
+            return (false, "Stale", "status-stale");
 
         return (false, "Dead", "status-dead");
     }

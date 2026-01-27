@@ -20,7 +20,7 @@ public class OrchestratorsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<IEnumerable<object>> GetOnlineOrchestrators([FromQuery] int minutesThreshold = 2)
+    public ActionResult<IEnumerable<object>> GetOnlineOrchestrators([FromQuery] int minutesThreshold = 1)
     {
         var threshold = DateTime.UtcNow.AddMinutes(-minutesThreshold);
         var allOrchestrators = _dataStore.GetOrchestrators();
