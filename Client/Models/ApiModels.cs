@@ -41,7 +41,7 @@ public class Customer
     public string? DefaultContainerImage { get; set; }
     public Dictionary<string, string>? Metadata { get; set; }
     public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public bool IsActive { get; set; } = true;
 }
 
