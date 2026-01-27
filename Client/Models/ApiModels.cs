@@ -129,3 +129,10 @@ public class CreateCustomerRequest
     public string? DefaultRegistry { get; set; }
     public string? DefaultContainerImage { get; set; }
 }
+
+public class VersionInfo
+{
+    public string Version { get; set; } = string.Empty;
+    public DateTime BuildDate { get; set; }
+    public string Environment { get; set; } = string.Empty;
+}

@@ -54,9 +54,14 @@
         }
     </div>
 
+    <footer class="dashboard-footer">
+        <div class="build-info">v@buildVersion</div>
+    </footer>
+
 @code {
     private string activeTab = "orchestrators";
     private string username = "Loading...";
+    private string buildVersion = "1.0.0";
 
     protected override async Task OnInitializedAsync()
     {
@@ -71,6 +76,7 @@
         {
             var user = await Api.GetCurrentUser();
             username = user?.Username ?? "Unknown";
+            buildVersion = await Api.GetBuildVersion();
         }
         catch
         {

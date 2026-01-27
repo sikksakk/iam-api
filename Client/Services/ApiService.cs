@@ -194,4 +194,19 @@ public class ApiService
         var response = await _http.GetAsync("/api/certificates");
         return await HandleResponse<List<Certificate>>(response);
     }
+
+    // Version
+    public async Task<string> GetBuildVersion()
+    {
+        try
+        {
+            var response = await _http.GetAsync("/api/version");
+            var versionInfo = await response.Content.ReadFromJsonAsync<VersionInfo>();
+            return versionInfo?.Version ?? "1.0.0";
+        }
+        catch
+        {
+            return "1.0.0";
+        }
+    }
 }
