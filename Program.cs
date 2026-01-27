@@ -120,7 +120,8 @@ app.MapControllers();
 // Fallback to index.html for client-side routing, but not for API routes
 app.MapFallbackToFile("index.html").AllowAnonymous();
 
-app.MapGet("/healthz", () => Results.Ok("ok"));
+app.MapGet("/healthz", () => Results.Ok("ok")).AllowAnonymous();
+app.MapGet("/health", () => Results.Ok("ok")).AllowAnonymous();
 
 // Managed Identity diagnostics endpoint
 app.MapGet("/debug/managed-identity", async (ILogger<Program> logger) =>
