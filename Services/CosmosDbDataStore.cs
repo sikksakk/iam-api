@@ -259,30 +259,14 @@ public class CosmosDbDataStore : IDataStore
     {
         _logger.LogInformation("Querying Cosmos DB for pending jobs...");
         
-        // First, let's see what all jobs look like
-        try
-        {
-            var allQuery = new QueryDefinition("SELECT c.id, c.name, c.status FROM c");
-            var allIterator = _jobsContainer.GetItemQueryIterator<dynamic>(allQuery);
-            while (allIterator.HasMoreResults)
-            {
-                var allResponse = allIterator.ReadNextAsync().GetAwaiter().GetResult();
-                foreach (var item in allResponse)
-                {
-                    _logger.LogInformation("Job in DB - ID: {Id}, Name: {Name}, Status: {Status} (Type: {Type})", 
-                        item.id, item.name, item.status, item.status?.GetType().Name ?? "null");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to query all jobs for debugging");
-        }
+        // Try both string and integer representations of the enum
+        var query = new QueryDefinition(
+            "SELECT * FROM c WHERE c.status = @statusString OR c.status = @statusInt ORDER BY c.createdAt ASC")
+            .WithParameter("@statusString", JobStatus.Pending.ToString())
+            .WithParameter("@statusInt", (int)JobStatus.Pending);
         
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.status = @status ORDER BY c.createdAt ASC")
-            .WithParameter("@status", JobStatus.Pending.ToString());
-        
-        _logger.LogInformation("Querying with status = '{Status}'", JobStatus.Pending.ToString());
+        _logger.LogInformation("Querying with status = '{StatusString}' OR {StatusInt}", 
+            JobStatus.Pending.ToString(), (int)JobStatus.Pending);
         
         var iterator = _jobsContainer.GetItemQueryIterator<Job>(query);
         var jobs = new List<Job>();
@@ -290,7 +274,7 @@ public class CosmosDbDataStore : IDataStore
         while (iterator.HasMoreResults)
         {
             var response = iterator.ReadNextAsync().GetAwaiter().GetResult();
-            _logger.LogDebug("Query page returned {Count} jobs (RU: {RU})", response.Count, response.RequestCharge);
+            _logger.LogInformation("Query page returned {Count} jobs (RU: {RU})", response.Count, response.RequestCharge);
             jobs.AddRange(response);
         }
 
