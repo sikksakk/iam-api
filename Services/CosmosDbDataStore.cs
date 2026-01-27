@@ -28,10 +28,33 @@ public class CosmosDbDataStore : IDataStore
             throw new ArgumentException("Connection string cannot be null or empty", nameof(connectionString));
         }
         
+        _logger.LogDebug("Connection string length: {Length} characters", connectionString.Length);
+        
+        // Validate connection string format - must contain AccountEndpoint and AccountKey
+        if (!connectionString.Contains("AccountEndpoint=", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError("Invalid Cosmos DB connection string: Missing 'AccountEndpoint' property");
+            _logger.LogError("Expected format: 'AccountEndpoint=https://your-account.documents.azure.com:443/;AccountKey=...;'");
+            _logger.LogError("Received connection string starts with: {Start}...", 
+                connectionString.Length > 50 ? connectionString.Substring(0, 50) : connectionString);
+            throw new ArgumentException(
+                "Invalid Cosmos DB connection string. Missing required 'AccountEndpoint' property. " +
+                "Expected format: 'AccountEndpoint=https://...;AccountKey=...;'", 
+                nameof(connectionString));
+        }
+        
+        if (!connectionString.Contains("AccountKey=", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError("Invalid Cosmos DB connection string: Missing 'AccountKey' property");
+            throw new ArgumentException(
+                "Invalid Cosmos DB connection string. Missing required 'AccountKey' property. " +
+                "Expected format: 'AccountEndpoint=https://...;AccountKey=...;'", 
+                nameof(connectionString));
+        }
+        
         // Log connection info (mask sensitive parts)
         var accountEndpoint = ExtractAccountEndpoint(connectionString);
         _logger.LogInformation("Cosmos DB Account Endpoint: {Endpoint}", accountEndpoint ?? "[Unable to parse]");
-        _logger.LogDebug("Connection string length: {Length} characters", connectionString.Length);
         
         try
         {
