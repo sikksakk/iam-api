@@ -17,7 +17,26 @@ if (int.TryParse(inboundPort, out var port) && port > 0)
 }
 
 // Add API services
-builder.Services.AddSingleton<IDataStore, InMemoryDataStore>();
+// Configure data store - use Cosmos DB if configured, otherwise in-memory
+var cosmosConnectionString = builder.Configuration["CosmosDb:ConnectionString"];
+var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"] ?? "IamDb";
+
+if (!string.IsNullOrEmpty(cosmosConnectionString))
+{
+    builder.Services.AddSingleton<IDataStore>(sp =>
+    {
+        var logger = sp.GetRequiredService<ILogger<CosmosDbDataStore>>();
+        return new CosmosDbDataStore(logger, cosmosConnectionString, cosmosDatabaseName);
+    });
+    builder.Logging.AddConsole().SetMinimumLevel(LogLevel.Information);
+    Console.WriteLine($"✓ Using Cosmos DB data store (Database: {cosmosDatabaseName})");
+}
+else
+{
+    builder.Services.AddSingleton<IDataStore, InMemoryDataStore>();
+    Console.WriteLine("⚠ Using IN-MEMORY data store (data will not persist). Configure CosmosDb:ConnectionString to use Cosmos DB.");
+}
+
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<ICertificateService, CertificateService>();
 builder.Services.AddHostedService<IamApi.CertificateMaintenanceWorker>();
