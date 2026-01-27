@@ -100,8 +100,8 @@
         try
         {
             var allLogs = await Api.GetLogs(jobGuid) ?? new();
-            containerLogs = allLogs.Where(l => l.Source == "Container").ToList();
-            orchestratorLogs = allLogs.Where(l => l.Source == "Orchestrator").ToList();
+            containerLogs = allLogs.Where(l => l.Source?.Equals("container", StringComparison.OrdinalIgnoreCase) == true).ToList();
+            orchestratorLogs = allLogs.Where(l => l.Source?.Equals("orchestrator", StringComparison.OrdinalIgnoreCase) == true).ToList();
         }
         catch (Exception ex)
         {
