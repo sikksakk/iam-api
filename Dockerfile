@@ -2,6 +2,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+# Install Git to get commit hash
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
 # Copy API project file and restore
 COPY iam-api.csproj .
 RUN dotnet restore
@@ -12,11 +15,14 @@ RUN dotnet restore Client/Client.csproj
 
 # Copy API source and build (skip automatic client build)
 COPY . .
-RUN dotnet publish -c Release -o /app/publish /p:SkipClientBuild=true
+RUN GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "dev") && \
+    echo $GIT_COMMIT > /src/version.txt && \
+    dotnet publish -c Release -o /app/publish /p:SkipClientBuild=true
 
 # Build Blazor WASM separately and copy wwwroot to publish output
 RUN dotnet publish Client/Client.csproj -c Release -o /tmp/client-build && \
-    cp -r /tmp/client-build/wwwroot /app/publish/wwwroot
+    cp -r /tmp/client-build/wwwroot /app/publish/wwwroot && \
+    cp /src/version.txt /app/publish/version.txt
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

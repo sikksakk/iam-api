@@ -11,8 +11,15 @@ public class VersionController : ControllerBase
     public ActionResult<VersionInfo> GetVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();
-        var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
         var buildDate = System.IO.File.GetLastWriteTimeUtc(assembly.Location);
+        
+        // Read Git commit hash from version file
+        var version = "1.0.0";
+        var versionFile = Path.Combine(AppContext.BaseDirectory, "version.txt");
+        if (System.IO.File.Exists(versionFile))
+        {
+            version = System.IO.File.ReadAllText(versionFile).Trim();
+        }
         
         return Ok(new VersionInfo
         {
