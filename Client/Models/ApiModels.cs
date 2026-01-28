@@ -58,7 +58,7 @@ public class ContainerRegistry
     public string? SubscriptionId { get; set; }
     public string? AzureResourceId { get; set; }
     public bool UseGraphManagement { get; set; }
-    public int Type { get; set; } // 0 = Generic, 1 = AzureContainerRegistry
+    public string Type { get; set; } = "Generic"; // "Generic" or "AzureContainerRegistry"
 }
 
 public class ContainerImage
@@ -98,7 +98,7 @@ public class AcrToken
     public Guid RegistryId { get; set; }
     public Guid ScopeMapId { get; set; }
     public string ResourceId { get; set; } = string.Empty;
-    public int Status { get; set; } // 0 = Active, 1 = Disabled, 2 = Expired, 3 = PendingDeletion
+    public string Status { get; set; } = "Active"; // "Active", "Disabled", "Expired", "PendingDeletion"
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public DateTime? LastUsedAt { get; set; }
@@ -130,7 +130,7 @@ public class TokenResponse
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public Guid ScopeMapId { get; set; }
-    public int Status { get; set; }
+    public string Status { get; set; } = "Active";
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
 }
@@ -203,7 +203,7 @@ public class CreateRegistryRequest
     public string? ResourceGroup { get; set; }
     public string? SubscriptionId { get; set; }
     public bool UseGraphManagement { get; set; }
-    public int Type { get; set; } // 0 = Generic, 1 = AzureContainerRegistry
+    public string Type { get; set; } = "Generic"; // "Generic" or "AzureContainerRegistry"
 }
 
 public class CleanupResult
