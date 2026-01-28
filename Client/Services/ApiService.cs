@@ -180,6 +180,101 @@ public class ApiService
         await HandleResponse<object>(response);
     }
 
+    // ACR - Image Management
+    public async Task<ContainerImageListResponse?> GetRegistryImages(Guid registryId)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/registries/{registryId}/images");
+        return await HandleResponse<ContainerImageListResponse>(response);
+    }
+
+    public async Task<List<string>?> GetImageTags(Guid registryId, string repository)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/registries/{registryId}/images/{repository}/tags");
+        return await HandleResponse<List<string>>(response);
+    }
+
+    // ACR - Scope Maps
+    public async Task<List<AcrScopeMap>?> GetScopeMaps(Guid registryId)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/registries/{registryId}/scopemaps");
+        return await HandleResponse<List<AcrScopeMap>>(response);
+    }
+
+    public async Task<AcrScopeMap?> GetScopeMap(Guid scopeMapId)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/registries/scopemaps/{scopeMapId}");
+        return await HandleResponse<AcrScopeMap>(response);
+    }
+
+    public async Task<AcrScopeMap?> CreateScopeMap(Guid registryId, CreateScopeMapRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsJsonAsync($"/api/registries/{registryId}/scopemaps", request);
+        return await HandleResponse<AcrScopeMap>(response);
+    }
+
+    public async Task DeleteScopeMap(Guid scopeMapId)
+    {
+        await SetAuthHeader();
+        var response = await _http.DeleteAsync($"/api/registries/scopemaps/{scopeMapId}");
+        await HandleResponse<object>(response);
+    }
+
+    // ACR - Tokens
+    public async Task<List<AcrToken>?> GetTokens(Guid registryId)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/registries/{registryId}/tokens");
+        return await HandleResponse<List<AcrToken>>(response);
+    }
+
+    public async Task<AcrToken?> GetToken(Guid tokenId)
+    {
+        await SetAuthHeader();
+        var response = await _http.GetAsync($"/api/registries/tokens/{tokenId}");
+        return await HandleResponse<AcrToken>(response);
+    }
+
+    public async Task<TokenResponse?> CreateToken(Guid registryId, CreateTokenRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsJsonAsync($"/api/registries/{registryId}/tokens", request);
+        return await HandleResponse<TokenResponse>(response);
+    }
+
+    public async Task DisableToken(Guid tokenId)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsync($"/api/registries/tokens/{tokenId}/disable", null);
+        await HandleResponse<object>(response);
+    }
+
+    public async Task DeleteToken(Guid tokenId)
+    {
+        await SetAuthHeader();
+        var response = await _http.DeleteAsync($"/api/registries/tokens/{tokenId}");
+        await HandleResponse<object>(response);
+    }
+
+    public async Task MarkTokenUsed(Guid tokenId)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsync($"/api/registries/tokens/{tokenId}/used", null);
+        await HandleResponse<object>(response);
+    }
+
+    // ACR - Cleanup
+    public async Task<RegistryCleanupResult?> CleanupRegistry()
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsync("/api/registries/cleanup", null);
+        return await HandleResponse<RegistryCleanupResult>(response);
+    }
+
     // Logs
     public async Task<List<LogEntry>?> GetLogs(Guid jobId, string? source = null)
     {

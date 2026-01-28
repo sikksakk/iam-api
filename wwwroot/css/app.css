@@ -904,3 +904,235 @@ td {
     color: #6b7280;
     font-family: monospace;
 }
+
+/* ACR Registry Management Styles */
+.registry-details {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-top: 24px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.registry-details h3 {
+    color: #1f2937;
+    margin-bottom: 16px;
+    display: inline-block;
+}
+
+.close-btn {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #dc2626;
+}
+
+.acr-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0;
+}
+
+.acr-tabs button {
+    background: none;
+    border: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    color: #6b7280;
+    font-weight: 500;
+    position: relative;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.acr-tabs button:hover {
+    color: #10b981;
+}
+
+.acr-tabs button.active {
+    color: #10b981;
+    border-bottom-color: #10b981;
+}
+
+.tab-panel {
+    padding: 20px 0;
+}
+
+.images-table {
+    width: 100%;
+    margin-top: 16px;
+}
+
+.images-table td:first-child {
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.images-table td:last-child {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.retrieved-at {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-align: right;
+}
+
+.refresh-btn {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    margin-top: 12px;
+    transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+    background: #059669;
+}
+
+.cleanup-btn {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.cleanup-btn:hover {
+    background: #d97706;
+}
+
+.action-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    margin-right: 4px;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: #2563eb;
+}
+
+.create-form {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 16px;
+}
+
+.create-form h4 {
+    color: #1f2937;
+    margin-bottom: 16px;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+}
+
+.cancel-btn {
+    background: #6b7280;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    margin-left: 8px;
+    transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+    background: #4b5563;
+}
+
+.token-password {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+}
+
+.token-password h4 {
+    color: #92400e;
+    margin-bottom: 12px;
+}
+
+.token-password code {
+    background: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: #1f2937;
+}
+
+.token-password .warning {
+    color: #92400e;
+    font-weight: 600;
+    margin-top: 12px;
+    font-size: 0.875rem;
+}
+
+.token-password button {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 12px;
+    transition: all 0.2s;
+}
+
+.token-password button:hover {
+    background: #059669;
+}
+
+tr.expired {
+    opacity: 0.6;
+    background: #fef2f2;
+}
+
+tr.expired td {
+    color: #991b1b;
+}

@@ -4,6 +4,7 @@
 <div class="tab-content">
     <div class="tab-header">
         <h2>Container Registries</h2>
+        <button class="cleanup-btn" @onclick="CleanupExpired">🧹 Cleanup Expired</button>
     </div>
 
     @if (isLoading)
@@ -21,7 +22,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Server</th>
-                    <th>Username</th>
+                    <th>Type</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -31,14 +32,236 @@
                     <tr>
                         <td>@reg.Name</td>
                         <td>@reg.Server</td>
-                        <td>@reg.Username</td>
+                        <td>@(reg.Type == 1 ? "ACR" : "Generic")</td>
                         <td>
-                            <button class="delete-btn" @onclick="() => DeleteRegistry(reg.Name)">Delete</button>
+                            @if (reg.Type == 1)
+                            {
+                                <button class="action-btn" @onclick="() => ViewRegistry(reg)">📋 View</button>
+                            }
+                            <button class="delete-btn" @onclick="() => DeleteRegistry(reg.Id)">Delete</button>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
+    }
+
+    @if (selectedRegistry != null)
+    {
+        <div class="registry-details">
+            <h3>@selectedRegistry.Name - Management</h3>
+            <button class="close-btn" @onclick="CloseRegistry">✕ Close</button>
+            
+            <div class="acr-tabs">
+                <button class="@(activeTab == "images" ? "active" : "")" @onclick='() => activeTab = "images"'>Images</button>
+                <button class="@(activeTab == "scopemaps" ? "active" : "")" @onclick='() => activeTab = "scopemaps"'>Scope Maps</button>
+                <button class="@(activeTab == "tokens" ? "active" : "")" @onclick='() => activeTab = "tokens"'>Tokens</button>
+            </div>
+
+            @if (activeTab == "images")
+            {
+                <div class="tab-panel">
+                    @if (isLoadingImages)
+                    {
+                        <p>Loading images...</p>
+                    }
+                    else if (images?.Images?.Any() == true)
+                    {
+                        <table class="images-table">
+                            <thead>
+                                <tr>
+                                    <th>Repository</th>
+                                    <th>Tags</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var img in images.Images)
+                                {
+                                    <tr>
+                                        <td>@img.Repository</td>
+                                        <td>@string.Join(", ", img.Tags)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <p class="retrieved-at">Retrieved: @images.RetrievedAt.ToLocalTime()</p>
+                    }
+                    else
+                    {
+                        <p>No images found.</p>
+                    }
+                    <button class="refresh-btn" @onclick="LoadImages">🔄 Refresh</button>
+                </div>
+            }
+            else if (activeTab == "scopemaps")
+            {
+                <div class="tab-panel">
+                    @if (isLoadingScopeMaps)
+                    {
+                        <p>Loading scope maps...</p>
+                    }
+                    else if (scopeMaps?.Any() == true)
+                    {
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Tokens</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var sm in scopeMaps)
+                                {
+                                    <tr>
+                                        <td>@sm.Name</td>
+                                        <td>@sm.Description</td>
+                                        <td>@sm.AssociatedTokenIds.Count</td>
+                                        <td>
+                                            <button class="action-btn" @onclick="() => ViewScopeMapActions(sm)">View</button>
+                                            <button class="delete-btn" @onclick="() => DeleteScopeMap(sm.Id)" disabled="@(sm.AssociatedTokenIds.Any())">Delete</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p>No scope maps found.</p>
+                    }
+
+                    @if (showCreateScopeMap)
+                    {
+                        <div class="create-form">
+                            <h4>Create Scope Map</h4>
+                            <EditForm Model="@newScopeMap" OnValidSubmit="CreateScopeMap">
+                                <div class="form-group">
+                                    <label>Name:</label>
+                                    <InputText @bind-Value="newScopeMap.Name" class="form-control" placeholder="customer-readonly" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Description:</label>
+                                    <InputText @bind-Value="newScopeMap.Description" class="form-control" placeholder="Read-only access" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Repositories (comma-separated):</label>
+                                    <InputText @bind-Value="repositoriesInput" class="form-control" placeholder="customer-scripts/alpha, base-images/powershell" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Actions:</label>
+                                    <div class="checkbox-group">
+                                        <label><InputCheckbox @bind-Value="actionRead" /> content/read (Pull)</label>
+                                        <label><InputCheckbox @bind-Value="actionWrite" /> content/write (Push)</label>
+                                        <label><InputCheckbox @bind-Value="actionDelete" /> content/delete</label>
+                                        <label><InputCheckbox @bind-Value="actionMetadataRead" /> metadata/read</label>
+                                    </div>
+                                </div>
+                                <button type="submit" class="add-btn" disabled="@isSubmittingScopeMap">Create</button>
+                                <button type="button" class="cancel-btn" @onclick='() => showCreateScopeMap = false'>Cancel</button>
+                            </EditForm>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="add-btn" @onclick='() => showCreateScopeMap = true'>➕ Create Scope Map</button>
+                    }
+                </div>
+            }
+            else if (activeTab == "tokens")
+            {
+                <div class="tab-panel">
+                    @if (isLoadingTokens)
+                    {
+                        <p>Loading tokens...</p>
+                    }
+                    else if (tokens?.Any() == true)
+                    {
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Expires</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var token in tokens)
+                                {
+                                    <tr class="@(token.Status == 2 ? "expired" : "")">
+                                        <td>@token.Name</td>
+                                        <td>@GetTokenStatus(token.Status)</td>
+                                        <td>@token.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td>@(token.ExpiresAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                                        <td>
+                                            @if (token.Status == 0)
+                                            {
+                                                <button class="action-btn" @onclick="() => DisableToken(token.Id)">Disable</button>
+                                            }
+                                            <button class="delete-btn" @onclick="() => DeleteToken(token.Id)">Delete</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p>No tokens found.</p>
+                    }
+
+                    @if (showCreateToken)
+                    {
+                        <div class="create-form">
+                            <h4>Create Token</h4>
+                            <EditForm Model="@newToken" OnValidSubmit="CreateToken">
+                                <div class="form-group">
+                                    <label>Name:</label>
+                                    <InputText @bind-Value="newToken.Name" class="form-control" placeholder="job-12345-token" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Scope Map:</label>
+                                    <InputSelect @bind-Value="newToken.ScopeMapId" class="form-control">
+                                        <option value="@Guid.Empty">Select scope map...</option>
+                                        @if (scopeMaps != null)
+                                        {
+                                            @foreach (var sm in scopeMaps)
+                                            {
+                                                <option value="@sm.Id">@sm.Name</option>
+                                            }
+                                        }
+                                    </InputSelect>
+                                </div>
+                                <div class="form-group">
+                                    <label>Expiry (days):</label>
+                                    <InputNumber @bind-Value="newToken.ExpiryInDays" class="form-control" placeholder="7" />
+                                </div>
+                                <button type="submit" class="add-btn" disabled="@isSubmittingToken">Create</button>
+                                <button type="button" class="cancel-btn" @onclick='() => showCreateToken = false'>Cancel</button>
+                            </EditForm>
+
+                            @if (createdTokenPassword != null)
+                            {
+                                <div class="token-password">
+                                    <h4>⚠️ Token Created - Save Password!</h4>
+                                    <p><strong>Username:</strong> @createdTokenUsername</p>
+                                    <p><strong>Password:</strong> <code>@createdTokenPassword</code></p>
+                                    <button @onclick="CopyPassword">📋 Copy Password</button>
+                                    <p class="warning">This password will only be shown once!</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="add-btn" @onclick='() => { showCreateToken = true; LoadScopeMaps(); }'>➕ Create Token</button>
+                    }
+                </div>
+            }
+        </div>
     }
 
     <div class="add-registry-form">
@@ -47,6 +270,13 @@
             <DataAnnotationsValidator />
             <div class="form-grid">
                 <div class="form-group">
+                    <label>Type:</label>
+                    <InputSelect @bind-Value="newRegistry.Type" class="form-control">
+                        <option value="0">Generic</option>
+                        <option value="1">Azure Container Registry</option>
+                    </InputSelect>
+                </div>
+                <div class="form-group">
                     <label>Name:</label>
                     <InputText @bind-Value="newRegistry.Name" class="form-control" placeholder="myregistry" />
                 </div>
@@ -54,14 +284,35 @@
                     <label>Server:</label>
                     <InputText @bind-Value="newRegistry.Server" class="form-control" placeholder="myregistry.azurecr.io" />
                 </div>
-                <div class="form-group">
-                    <label>Username:</label>
-                    <InputText @bind-Value="newRegistry.Username" class="form-control" placeholder="username" />
-                </div>
-                <div class="form-group">
-                    <label>Password:</label>
-                    <InputText @bind-Value="newRegistry.Password" type="password" class="form-control" placeholder="password" />
-                </div>
+                
+                @if (newRegistry.Type == 1)
+                {
+                    <div class="form-group">
+                        <label>Subscription ID:</label>
+                        <InputText @bind-Value="newRegistry.SubscriptionId" class="form-control" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                    </div>
+                    <div class="form-group">
+                        <label>Resource Group:</label>
+                        <InputText @bind-Value="newRegistry.ResourceGroup" class="form-control" placeholder="my-resource-group" />
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <InputCheckbox @bind-Value="newRegistry.UseGraphManagement" />
+                            Enable Token Management
+                        </label>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <InputText @bind-Value="newRegistry.Username" class="form-control" placeholder="username" />
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <InputText @bind-Value="newRegistry.Password" type="password" class="form-control" placeholder="password" />
+                    </div>
+                }
             </div>
             <button type="submit" class="add-btn" disabled="@isSubmitting">Add Registry</button>
         </EditForm>
@@ -73,6 +324,33 @@
     private CreateRegistryRequest newRegistry = new();
     private bool isLoading = true;
     private bool isSubmitting = false;
+
+    // ACR Management
+    private ContainerRegistry? selectedRegistry;
+    private string activeTab = "images";
+    private ContainerImageListResponse? images;
+    private List<AcrScopeMap>? scopeMaps;
+    private List<AcrToken>? tokens;
+    private bool isLoadingImages;
+    private bool isLoadingScopeMaps;
+    private bool isLoadingTokens;
+
+    // Scope Map Creation
+    private bool showCreateScopeMap;
+    private bool isSubmittingScopeMap;
+    private CreateScopeMapRequest newScopeMap = new();
+    private string repositoriesInput = "";
+    private bool actionRead = true;
+    private bool actionWrite = false;
+    private bool actionDelete = false;
+    private bool actionMetadataRead = true;
+
+    // Token Creation
+    private bool showCreateToken;
+    private bool isSubmittingToken;
+    private CreateTokenRequest newToken = new();
+    private string? createdTokenPassword;
+    private string? createdTokenUsername;
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,12 +394,16 @@
         }
     }
 
-    private async Task DeleteRegistry(string name)
+    private async Task DeleteRegistry(Guid id)
     {
         try
         {
-            await Api.DeleteRegistry(name);
+            await Api.DeleteRegistry(id.ToString());
             await Toast.ShowSuccess("Registry deleted");
+            if (selectedRegistry?.Id == id)
+            {
+                selectedRegistry = null;
+            }
             await LoadRegistries();
         }
         catch (Exception ex)
@@ -129,4 +411,218 @@
             await Toast.ShowError($"Failed to delete registry: {ex.Message}");
         }
     }
+
+    private async Task ViewRegistry(ContainerRegistry registry)
+    {
+        selectedRegistry = registry;
+        activeTab = "images";
+        await LoadImages();
+    }
+
+    private void CloseRegistry()
+    {
+        selectedRegistry = null;
+        images = null;
+        scopeMaps = null;
+        tokens = null;
+    }
+
+    private async Task LoadImages()
+    {
+        if (selectedRegistry == null) return;
+        isLoadingImages = true;
+        try
+        {
+            images = await Api.GetRegistryImages(selectedRegistry.Id);
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load images: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingImages = false;
+        }
+    }
+
+    private async Task LoadScopeMaps()
+    {
+        if (selectedRegistry == null) return;
+        isLoadingScopeMaps = true;
+        try
+        {
+            scopeMaps = await Api.GetScopeMaps(selectedRegistry.Id);
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load scope maps: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingScopeMaps = false;
+        }
+    }
+
+    private async Task LoadTokens()
+    {
+        if (selectedRegistry == null) return;
+        isLoadingTokens = true;
+        try
+        {
+            tokens = await Api.GetTokens(selectedRegistry.Id);
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load tokens: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingTokens = false;
+        }
+    }
+
+    private void ViewScopeMapActions(AcrScopeMap scopeMap)
+    {
+        var actions = string.Join("\n", scopeMap.Actions);
+        Toast.ShowInfo($"Scope Map Actions:\n{actions}");
+    }
+
+    private async Task CreateScopeMap()
+    {
+        if (selectedRegistry == null) return;
+        isSubmittingScopeMap = true;
+        try
+        {
+            newScopeMap.Repositories = repositoriesInput.Split(',').Select(r => r.Trim()).Where(r => !string.IsNullOrEmpty(r)).ToList();
+            newScopeMap.Actions = new List<string>();
+            if (actionRead) newScopeMap.Actions.Add("content/read");
+            if (actionWrite) newScopeMap.Actions.Add("content/write");
+            if (actionDelete) newScopeMap.Actions.Add("content/delete");
+            if (actionMetadataRead) newScopeMap.Actions.Add("metadata/read");
+
+            await Api.CreateScopeMap(selectedRegistry.Id, newScopeMap);
+            await Toast.ShowSuccess("Scope map created");
+            newScopeMap = new();
+            repositoriesInput = "";
+            actionRead = true;
+            actionWrite = false;
+            actionDelete = false;
+            actionMetadataRead = true;
+            showCreateScopeMap = false;
+            await LoadScopeMaps();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to create scope map: {ex.Message}");
+        }
+        finally
+        {
+            isSubmittingScopeMap = false;
+        }
+    }
+
+    private async Task DeleteScopeMap(Guid id)
+    {
+        try
+        {
+            await Api.DeleteScopeMap(id);
+            await Toast.ShowSuccess("Scope map deleted");
+            await LoadScopeMaps();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to delete scope map: {ex.Message}");
+        }
+    }
+
+    private async Task CreateToken()
+    {
+        if (selectedRegistry == null) return;
+        isSubmittingToken = true;
+        createdTokenPassword = null;
+        try
+        {
+            var response = await Api.CreateToken(selectedRegistry.Id, newToken);
+            if (response != null)
+            {
+                createdTokenPassword = response.Password;
+                createdTokenUsername = response.Username;
+                await Toast.ShowSuccess("Token created - Save the password!");
+                newToken = new();
+                await LoadTokens();
+            }
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to create token: {ex.Message}");
+        }
+        finally
+        {
+            isSubmittingToken = false;
+        }
+    }
+
+    private async Task DisableToken(Guid id)
+    {
+        try
+        {
+            await Api.DisableToken(id);
+            await Toast.ShowSuccess("Token disabled");
+            await LoadTokens();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to disable token: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteToken(Guid id)
+    {
+        try
+        {
+            await Api.DeleteToken(id);
+            await Toast.ShowSuccess("Token deleted");
+            await LoadTokens();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to delete token: {ex.Message}");
+        }
+    }
+
+    private async Task CleanupExpired()
+    {
+        try
+        {
+            var result = await Api.CleanupRegistry();
+            if (result != null)
+            {
+                await Toast.ShowSuccess($"Cleanup complete: {result.TokensDeleted} tokens, {result.ScopeMapsDeleted} scope maps deleted");
+                if (selectedRegistry != null)
+                {
+                    await LoadTokens();
+                    await LoadScopeMaps();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to cleanup: {ex.Message}");
+        }
+    }
+
+    private async Task CopyPassword()
+    {
+        // In a real implementation, use JSInterop to copy to clipboard
+        await Toast.ShowSuccess("Copy the password above manually");
+    }
+
+    private string GetTokenStatus(int status) => status switch
+    {
+        0 => "Active",
+        1 => "Disabled",
+        2 => "Expired",
+        3 => "Pending Deletion",
+        _ => "Unknown"
+    };
 }
