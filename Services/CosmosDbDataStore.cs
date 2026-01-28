@@ -14,6 +14,8 @@ public class CosmosDbDataStore : IDataStore
     private readonly Container _orchestratorsContainer;
     private readonly Container _registriesContainer;
     private readonly Container _customersContainer;
+    private readonly Container _scopeMapsContainer;
+    private readonly Container _tokensContainer;
 
     public CosmosDbDataStore(ILogger<CosmosDbDataStore> logger, string connectionString, string databaseName)
     {
@@ -90,8 +92,10 @@ public class CosmosDbDataStore : IDataStore
             _orchestratorsContainer = InitializeContainerAsync("Orchestrators", "/id").GetAwaiter().GetResult();
             _registriesContainer = InitializeContainerAsync("Registries", "/id").GetAwaiter().GetResult();
             _customersContainer = InitializeContainerAsync("Customers", "/id").GetAwaiter().GetResult();
+            _scopeMapsContainer = InitializeContainerAsync("ScopeMaps", "/registryId").GetAwaiter().GetResult();
+            _tokensContainer = InitializeContainerAsync("Tokens", "/registryId").GetAwaiter().GetResult();
             
-            _logger.LogInformation("✓ Cosmos DB initialized successfully - Database: {DatabaseName}, Containers: 5", databaseName);
+            _logger.LogInformation("✓ Cosmos DB initialized successfully - Database: {DatabaseName}, Containers: 7", databaseName);
         }
         catch (Exception ex)
         {
@@ -548,6 +552,184 @@ public class CosmosDbDataStore : IDataStore
         {
             _customersContainer.DeleteItemAsync<Customer>(id, new PartitionKey(id))
                 .GetAwaiter().GetResult();
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            // Already deleted
+        }
+    }
+
+    // ACR Scope Maps
+    public void AddScopeMap(AcrScopeMap scopeMap)
+    {
+        try
+        {
+            _scopeMapsContainer.CreateItemAsync(scopeMap, new PartitionKey(scopeMap.RegistryId.ToString()))
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add scope map {ScopeMapId}", scopeMap.Id);
+            throw;
+        }
+    }
+
+    public AcrScopeMap? GetScopeMap(Guid id)
+    {
+        try
+        {
+            var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id")
+                .WithParameter("@id", id);
+            
+            var iterator = _scopeMapsContainer.GetItemQueryIterator<AcrScopeMap>(query);
+            var results = iterator.ReadNextAsync().GetAwaiter().GetResult();
+            return results.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get scope map {ScopeMapId}", id);
+            return null;
+        }
+    }
+
+    public List<AcrScopeMap> GetScopeMaps(Guid registryId)
+    {
+        var scopeMaps = new List<AcrScopeMap>();
+        
+        try
+        {
+            var query = new QueryDefinition("SELECT * FROM c WHERE c.registryId = @registryId")
+                .WithParameter("@registryId", registryId);
+            
+            var iterator = _scopeMapsContainer.GetItemQueryIterator<AcrScopeMap>(query);
+            
+            while (iterator.HasMoreResults)
+            {
+                var response = iterator.ReadNextAsync().GetAwaiter().GetResult();
+                scopeMaps.AddRange(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get scope maps for registry {RegistryId}", registryId);
+        }
+        
+        return scopeMaps.OrderBy(s => s.Name).ToList();
+    }
+
+    public void UpdateScopeMap(AcrScopeMap scopeMap)
+    {
+        try
+        {
+            _scopeMapsContainer.UpsertItemAsync(scopeMap, new PartitionKey(scopeMap.RegistryId.ToString()))
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update scope map {ScopeMapId}", scopeMap.Id);
+            throw;
+        }
+    }
+
+    public void RemoveScopeMap(Guid id)
+    {
+        try
+        {
+            var scopeMap = GetScopeMap(id);
+            if (scopeMap != null)
+            {
+                _scopeMapsContainer.DeleteItemAsync<AcrScopeMap>(id.ToString(), new PartitionKey(scopeMap.RegistryId.ToString()))
+                    .GetAwaiter().GetResult();
+            }
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            // Already deleted
+        }
+    }
+
+    // ACR Tokens
+    public void AddToken(AcrToken token)
+    {
+        try
+        {
+            _tokensContainer.CreateItemAsync(token, new PartitionKey(token.RegistryId.ToString()))
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to add token {TokenId}", token.Id);
+            throw;
+        }
+    }
+
+    public AcrToken? GetToken(Guid id)
+    {
+        try
+        {
+            var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id")
+                .WithParameter("@id", id);
+            
+            var iterator = _tokensContainer.GetItemQueryIterator<AcrToken>(query);
+            var results = iterator.ReadNextAsync().GetAwaiter().GetResult();
+            return results.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get token {TokenId}", id);
+            return null;
+        }
+    }
+
+    public List<AcrToken> GetTokens(Guid registryId)
+    {
+        var tokens = new List<AcrToken>();
+        
+        try
+        {
+            var query = new QueryDefinition("SELECT * FROM c WHERE c.registryId = @registryId")
+                .WithParameter("@registryId", registryId);
+            
+            var iterator = _tokensContainer.GetItemQueryIterator<AcrToken>(query);
+            
+            while (iterator.HasMoreResults)
+            {
+                var response = iterator.ReadNextAsync().GetAwaiter().GetResult();
+                tokens.AddRange(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get tokens for registry {RegistryId}", registryId);
+        }
+        
+        return tokens.OrderByDescending(t => t.CreatedAt).ToList();
+    }
+
+    public void UpdateToken(AcrToken token)
+    {
+        try
+        {
+            _tokensContainer.UpsertItemAsync(token, new PartitionKey(token.RegistryId.ToString()))
+                .GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update token {TokenId}", token.Id);
+            throw;
+        }
+    }
+
+    public void RemoveToken(Guid id)
+    {
+        try
+        {
+            var token = GetToken(id);
+            if (token != null)
+            {
+                _tokensContainer.DeleteItemAsync<AcrToken>(id.ToString(), new PartitionKey(token.RegistryId.ToString()))
+                    .GetAwaiter().GetResult();
+            }
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {

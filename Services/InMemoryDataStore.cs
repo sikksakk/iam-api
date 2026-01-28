@@ -10,6 +10,8 @@ public class InMemoryDataStore : IDataStore
     private readonly ConcurrentDictionary<string, Orchestrator> _orchestrators = new();
     private readonly ConcurrentDictionary<Guid, ContainerRegistry> _registries = new();
     private readonly ConcurrentDictionary<string, Customer> _customers = new();
+    private readonly ConcurrentDictionary<Guid, AcrScopeMap> _scopeMaps = new();
+    private readonly ConcurrentDictionary<Guid, AcrToken> _tokens = new();
 
     // Jobs
     public Job AddJob(Job job)
@@ -172,5 +174,65 @@ public class InMemoryDataStore : IDataStore
     public void DeleteCustomer(string id)
     {
         _customers.TryRemove(id, out _);
+    }
+
+    // ACR Scope Maps
+    public void AddScopeMap(AcrScopeMap scopeMap)
+    {
+        _scopeMaps[scopeMap.Id] = scopeMap;
+    }
+
+    public AcrScopeMap? GetScopeMap(Guid id)
+    {
+        _scopeMaps.TryGetValue(id, out var scopeMap);
+        return scopeMap;
+    }
+
+    public List<AcrScopeMap> GetScopeMaps(Guid registryId)
+    {
+        return _scopeMaps.Values
+            .Where(s => s.RegistryId == registryId)
+            .OrderBy(s => s.Name)
+            .ToList();
+    }
+
+    public void UpdateScopeMap(AcrScopeMap scopeMap)
+    {
+        _scopeMaps[scopeMap.Id] = scopeMap;
+    }
+
+    public void RemoveScopeMap(Guid id)
+    {
+        _scopeMaps.TryRemove(id, out _);
+    }
+
+    // ACR Tokens
+    public void AddToken(AcrToken token)
+    {
+        _tokens[token.Id] = token;
+    }
+
+    public AcrToken? GetToken(Guid id)
+    {
+        _tokens.TryGetValue(id, out var token);
+        return token;
+    }
+
+    public List<AcrToken> GetTokens(Guid registryId)
+    {
+        return _tokens.Values
+            .Where(t => t.RegistryId == registryId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToList();
+    }
+
+    public void UpdateToken(AcrToken token)
+    {
+        _tokens[token.Id] = token;
+    }
+
+    public void RemoveToken(Guid id)
+    {
+        _tokens.TryRemove(id, out _);
     }
 }

@@ -57,6 +57,8 @@ else
 
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<ICertificateService, CertificateService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IContainerRegistryService, ContainerRegistryService>();
 builder.Services.AddHostedService<IamApi.CertificateMaintenanceWorker>();
 
 // Configure JWT Authentication

@@ -29,6 +29,20 @@ public interface IDataStore
     void AddRegistry(ContainerRegistry registry);
     void RemoveRegistry(Guid id);
     
+    // ACR Scope Maps
+    void AddScopeMap(AcrScopeMap scopeMap);
+    AcrScopeMap? GetScopeMap(Guid id);
+    List<AcrScopeMap> GetScopeMaps(Guid registryId);
+    void UpdateScopeMap(AcrScopeMap scopeMap);
+    void RemoveScopeMap(Guid id);
+    
+    // ACR Tokens
+    void AddToken(AcrToken token);
+    AcrToken? GetToken(Guid id);
+    List<AcrToken> GetTokens(Guid registryId);
+    void UpdateToken(AcrToken token);
+    void RemoveToken(Guid id);
+    
     // Customers
     IEnumerable<Customer> GetCustomers();
     Customer? GetCustomer(string id);
