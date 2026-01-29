@@ -126,8 +126,16 @@ public class ContainerRegistryService : IContainerRegistryService
         var accessToken = await ExchangeAcrTokenAsync(registry, acrToken);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
+        _logger.LogInformation("Calling ACR catalog API: {Url}", url);
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("ACR catalog request failed with status {StatusCode}: {Error}", 
+                response.StatusCode, errorContent);
+            throw new InvalidOperationException($"ACR catalog request failed: {response.StatusCode} - {errorContent}");
+        }
 
         var content = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<AcrCatalogResponse>(content);
@@ -155,10 +163,16 @@ public class ContainerRegistryService : IContainerRegistryService
 
     private async Task<string> GetAcrRefreshTokenAsync(ContainerRegistry registry)
     {
-        // Get AAD token for ACR
+        // Get AAD token for ACR - use the ARM scope since the identity has Contributor + AcrPull roles
         var credential = GetCredential();
         var tokenContext = new TokenRequestContext(new[] { "https://management.azure.com/.default" });
         var token = await credential.GetTokenAsync(tokenContext, CancellationToken.None);
+        
+        var tenantId = _configuration["EntraId:TenantId"];
+        _logger.LogInformation("ACR exchange: server={Server}, tenant={TenantId} (configured={HasTenant})", 
+            registry.Server, 
+            string.IsNullOrEmpty(tenantId) ? "(empty)" : tenantId[..Math.Min(8, tenantId.Length)] + "...",
+            !string.IsNullOrEmpty(tenantId));
         
         // Exchange for ACR refresh token
         var url = $"https://{registry.Server}/oauth2/exchange";
@@ -168,6 +182,12 @@ public class ContainerRegistryService : IContainerRegistryService
             { "service", registry.Server },
             { "access_token", token.Token }
         };
+        
+        // Only add tenant if configured
+        if (!string.IsNullOrEmpty(tenantId))
+        {
+            formData["tenant"] = tenantId;
+        }
 
         var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
@@ -175,12 +195,19 @@ public class ContainerRegistryService : IContainerRegistryService
         };
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("ACR token exchange failed with status {StatusCode}: {Error}", 
+                response.StatusCode, errorContent);
+            throw new InvalidOperationException($"ACR token exchange failed: {response.StatusCode} - {errorContent}");
+        }
 
         var content = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<AcrTokenResponse>(content);
         
-        return result?.RefreshToken ?? throw new InvalidOperationException("Failed to get ACR refresh token");
+        return result?.RefreshToken ?? throw new InvalidOperationException("Failed to get ACR refresh token - no refresh_token in response");
     }
 
     private async Task<string> ExchangeAcrTokenAsync(ContainerRegistry registry, string refreshToken, string? scope = null)
@@ -197,6 +224,11 @@ public class ContainerRegistryService : IContainerRegistryService
         {
             formData["scope"] = $"repository:{scope}:pull";
         }
+        else
+        {
+            // For catalog listing, we need the registry:catalog:* scope
+            formData["scope"] = "registry:catalog:*";
+        }
 
         var request = new HttpRequestMessage(HttpMethod.Post, url)
         {
@@ -204,12 +236,19 @@ public class ContainerRegistryService : IContainerRegistryService
         };
 
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("ACR access token exchange failed with status {StatusCode}: {Error}", 
+                response.StatusCode, errorContent);
+            throw new InvalidOperationException($"ACR access token exchange failed: {response.StatusCode} - {errorContent}");
+        }
 
         var content = await response.Content.ReadAsStringAsync();
         var result = JsonSerializer.Deserialize<AcrTokenResponse>(content);
         
-        return result?.AccessToken ?? throw new InvalidOperationException("Failed to get ACR access token");
+        return result?.AccessToken ?? throw new InvalidOperationException("Failed to get ACR access token - no access_token in response");
     }
 
     public async Task<AcrScopeMap> CreateScopeMapAsync(Guid registryId, CreateScopeMapRequest request)
