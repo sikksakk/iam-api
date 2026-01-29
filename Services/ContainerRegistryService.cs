@@ -503,7 +503,7 @@ public class ContainerRegistryService : IContainerRegistryService
         var content = await response.Content.ReadAsStringAsync();
         var azureResponse = JsonSerializer.Deserialize<AzureTokenResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-        // Generate password for the token
+        // Generate password for the token - with retry logic since token may take time to provision
         var passwordUrl = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
                          $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
                          $"/registries/{registry.Name}/tokens/{request.Name}/generateCredentials?api-version=2023-07-01";
@@ -514,19 +514,43 @@ public class ContainerRegistryService : IContainerRegistryService
             expiry = request.ExpiryInDays.HasValue ? DateTime.UtcNow.AddDays(request.ExpiryInDays.Value) : (DateTime?)null
         };
 
-        var passwordRequest = new HttpRequestMessage(HttpMethod.Post, passwordUrl)
-        {
-            Content = new StringContent(JsonSerializer.Serialize(passwordPayload), Encoding.UTF8, "application/json")
-        };
-        passwordRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-        var passwordResponse = await _httpClient.SendAsync(passwordRequest);
+        HttpResponseMessage? passwordResponse = null;
+        const int maxRetries = 5;
+        const int delayMs = 2000;
         
-        if (!passwordResponse.IsSuccessStatusCode)
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            var errorContent = await passwordResponse.Content.ReadAsStringAsync();
-            _logger.LogError("Failed to generate credentials for token {Name}: {StatusCode} - {Error}", request.Name, passwordResponse.StatusCode, errorContent);
-            throw new InvalidOperationException($"Failed to generate token credentials: {passwordResponse.StatusCode} - {errorContent}");
+            var passwordRequest = new HttpRequestMessage(HttpMethod.Post, passwordUrl)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(passwordPayload), Encoding.UTF8, "application/json")
+            };
+            passwordRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            passwordResponse = await _httpClient.SendAsync(passwordRequest);
+            
+            if (passwordResponse.IsSuccessStatusCode)
+            {
+                break;
+            }
+            
+            if (passwordResponse.StatusCode == System.Net.HttpStatusCode.NotFound && attempt < maxRetries)
+            {
+                _logger.LogWarning("Token {Name} not yet available (attempt {Attempt}/{MaxRetries}), waiting {Delay}ms...", 
+                    request.Name, attempt, maxRetries, delayMs);
+                await Task.Delay(delayMs);
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        if (passwordResponse == null || !passwordResponse.IsSuccessStatusCode)
+        {
+            var errorContent = passwordResponse != null ? await passwordResponse.Content.ReadAsStringAsync() : "No response";
+            _logger.LogError("Failed to generate credentials for token {Name}: {StatusCode} - {Error}", 
+                request.Name, passwordResponse?.StatusCode, errorContent);
+            throw new InvalidOperationException($"Failed to generate token credentials: {passwordResponse?.StatusCode} - {errorContent}");
         }
 
         var passwordContent = await passwordResponse.Content.ReadAsStringAsync();
