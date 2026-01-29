@@ -190,8 +190,18 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="cancel-btn" @onclick="CloseModal">Cancel</button>
-                    <button type="submit" class="submit-btn" disabled="@isSubmitting">Create Job</button>
+                    @if (isSubmitting)
+                    {
+                        <div class="loading-indicator">
+                            <div class="spinner"></div>
+                            <span>@submittingStatus</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <button type="button" class="cancel-btn" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="submit-btn">Create Job</button>
+                    }
                 </div>
             </EditForm>
         </div>
@@ -205,6 +215,7 @@
     private CreateJobRequest jobForm = new() { Parameters = new() };
     private bool isLoading = true;
     private bool isSubmitting = false;
+    private string submittingStatus = "";
     private bool showModal = false;
     private bool useRecurring = false;
     private DateTime scheduledForInput = DateTime.Now.AddHours(1);
@@ -391,6 +402,9 @@
     private async Task SubmitJobForm()
     {
         isSubmitting = true;
+        submittingStatus = "Creating job...";
+        StateHasChanged();
+        
         try
         {
             if (!useRecurring)
@@ -403,8 +417,16 @@
                 jobForm.ScheduledFor = null;
             }
 
+            // Show specific status for ACR jobs
+            if (selectedRegistry?.Type == "AzureContainerRegistry" && !string.IsNullOrEmpty(selectedImageRepository))
+            {
+                submittingStatus = "Creating ACR scope map...";
+                StateHasChanged();
+                await Task.Delay(100); // Allow UI to update
+            }
+
             await Api.CreateJob(jobForm);
-            await Toast.ShowSuccess("Job created");
+            await Toast.ShowSuccess("Job created successfully!");
             CloseModal();
             await LoadJobs();
         }

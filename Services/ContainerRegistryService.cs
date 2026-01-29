@@ -520,6 +520,9 @@ public class ContainerRegistryService : IContainerRegistryService
         
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            _logger.LogInformation("Generating credentials for token {Name} (attempt {Attempt}/{MaxRetries})", 
+                request.Name, attempt, maxRetries);
+                
             var passwordRequest = new HttpRequestMessage(HttpMethod.Post, passwordUrl)
             {
                 Content = new StringContent(JsonSerializer.Serialize(passwordPayload), Encoding.UTF8, "application/json")
@@ -530,6 +533,7 @@ public class ContainerRegistryService : IContainerRegistryService
             
             if (passwordResponse.IsSuccessStatusCode)
             {
+                _logger.LogInformation("Successfully generated credentials for token {Name} on attempt {Attempt}", request.Name, attempt);
                 break;
             }
             
@@ -538,11 +542,11 @@ public class ContainerRegistryService : IContainerRegistryService
                 _logger.LogWarning("Token {Name} not yet available (attempt {Attempt}/{MaxRetries}), waiting {Delay}ms...", 
                     request.Name, attempt, maxRetries, delayMs);
                 await Task.Delay(delayMs);
+                continue;
             }
-            else
-            {
-                break;
-            }
+            
+            // For non-404 errors or last attempt, break out
+            break;
         }
         
         if (passwordResponse == null || !passwordResponse.IsSuccessStatusCode)
