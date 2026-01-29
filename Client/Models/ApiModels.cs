@@ -187,6 +187,8 @@ public class CreateJobRequest
     public string? RegistryServer { get; set; }
     public string? RegistryUsername { get; set; }
     public string? RegistryPassword { get; set; }
+    public Guid? RegistryId { get; set; }  // ACR registry ID for automatic token creation
+    public string? ImageRepository { get; set; }  // Selected repository from ACR
     public string JobType { get; set; } = "OneOff";
     public bool IsWhatIf { get; set; }
     public string? Schedule { get; set; }

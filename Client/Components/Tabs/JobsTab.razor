@@ -92,18 +92,63 @@
                 </div>
                 <div class="form-group">
                     <label>Registry Server:</label>
-                    <select @bind="selectedRegistryName" @bind:after="OnRegistrySelected" class="form-control">
+                    <select @bind="selectedRegistryId" @bind:after="OnRegistrySelected" class="form-control">
                         <option value="">-- Select registry --</option>
                         @foreach (var registry in registries)
                         {
-                            <option value="@registry.Name">@registry.Name (@registry.Server)</option>
+                            <option value="@registry.Id">@registry.Name (@registry.Server)</option>
                         }
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Container Image:</label>
-                    <InputText @bind-Value="jobForm.ContainerImage" class="form-control" placeholder="myimage:latest" />
-                </div>
+                @if (selectedRegistry != null && selectedRegistry.Type == "AzureContainerRegistry")
+                {
+                    <div class="form-group">
+                        <label>Image Repository:</label>
+                        @if (isLoadingImages)
+                        {
+                            <p>Loading images...</p>
+                        }
+                        else if (registryImages?.Images?.Any() == true)
+                        {
+                            <select @bind="selectedImageRepository" @bind:after="OnImageRepositorySelected" class="form-control">
+                                <option value="">-- Select image repository --</option>
+                                @foreach (var image in registryImages.Images)
+                                {
+                                    <option value="@image.Repository">@image.Repository (@image.Tags.Count tags)</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <p class="info-text">No images found in registry</p>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(selectedImageRepository) && selectedImageTags?.Any() == true)
+                    {
+                        <div class="form-group">
+                            <label>Image Tag:</label>
+                            <select @bind="selectedImageTag" @bind:after="OnImageTagSelected" class="form-control">
+                                <option value="">-- Select tag --</option>
+                                @foreach (var tag in selectedImageTags)
+                                {
+                                    <option value="@tag">@tag</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="form-group">
+                        <label>Container Image (auto-filled):</label>
+                        <InputText @bind-Value="jobForm.ContainerImage" class="form-control" placeholder="repository:tag" readonly="@(!string.IsNullOrEmpty(selectedImageRepository))" />
+                        <small class="info-text">💡 A scoped ACR token will be created automatically for this job</small>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>Container Image:</label>
+                        <InputText @bind-Value="jobForm.ContainerImage" class="form-control" placeholder="myimage:latest" />
+                    </div>
+                }
                 <div class="form-group">
                     <label>Name:</label>
                     <InputText @bind-Value="jobForm.Name" class="form-control" placeholder="My Job" />
@@ -163,7 +208,13 @@
     private bool showModal = false;
     private bool useRecurring = false;
     private DateTime scheduledForInput = DateTime.Now.AddHours(1);
-    private string selectedRegistryName = "";
+    private string selectedRegistryId = "";
+    private ContainerRegistry? selectedRegistry;
+    private ContainerImageListResponse? registryImages;
+    private bool isLoadingImages = false;
+    private string selectedImageRepository = "";
+    private List<string>? selectedImageTags;
+    private string selectedImageTag = "";
     private System.Threading.Timer? refreshTimer;
 
     protected override async Task OnInitializedAsync()
@@ -186,14 +237,78 @@
         refreshTimer?.Dispose();
     }
 
-    private void OnRegistrySelected()
+    private async Task OnRegistrySelected()
     {
-        var registry = registries.FirstOrDefault(r => r.Name == selectedRegistryName);
-        if (registry != null)
+        selectedRegistry = null;
+        registryImages = null;
+        selectedImageRepository = "";
+        selectedImageTags = null;
+        selectedImageTag = "";
+        jobForm.RegistryId = null;
+        jobForm.ImageRepository = null;
+        jobForm.ContainerImage = "";
+        
+        if (Guid.TryParse(selectedRegistryId, out var registryId))
         {
-            jobForm.RegistryServer = registry.Server;
-            jobForm.RegistryUsername = registry.Username;
-            jobForm.RegistryPassword = registry.Password;
+            selectedRegistry = registries.FirstOrDefault(r => r.Id == registryId);
+            if (selectedRegistry != null)
+            {
+                jobForm.RegistryServer = selectedRegistry.Server;
+                jobForm.RegistryUsername = selectedRegistry.Username;
+                jobForm.RegistryPassword = selectedRegistry.Password;
+                
+                // If it's an ACR, load images
+                if (selectedRegistry.Type == "AzureContainerRegistry")
+                {
+                    jobForm.RegistryId = selectedRegistry.Id;
+                    await LoadRegistryImages();
+                }
+            }
+        }
+    }
+
+    private async Task LoadRegistryImages()
+    {
+        if (selectedRegistry == null) return;
+        
+        isLoadingImages = true;
+        StateHasChanged();
+        
+        try
+        {
+            registryImages = await Api.GetRegistryImages(selectedRegistry.Id);
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load images: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingImages = false;
+        }
+    }
+
+    private void OnImageRepositorySelected()
+    {
+        selectedImageTags = null;
+        selectedImageTag = "";
+        
+        if (!string.IsNullOrEmpty(selectedImageRepository) && registryImages != null)
+        {
+            var image = registryImages.Images.FirstOrDefault(i => i.Repository == selectedImageRepository);
+            if (image != null)
+            {
+                selectedImageTags = image.Tags;
+                jobForm.ImageRepository = selectedImageRepository;
+            }
+        }
+    }
+
+    private void OnImageTagSelected()
+    {
+        if (!string.IsNullOrEmpty(selectedImageRepository) && !string.IsNullOrEmpty(selectedImageTag) && selectedRegistry != null)
+        {
+            jobForm.ContainerImage = $"{selectedRegistry.Server}/{selectedImageRepository}:{selectedImageTag}";
         }
     }
 
@@ -243,6 +358,12 @@
         jobForm = new() { Parameters = new() };
         useRecurring = false;
         scheduledForInput = DateTime.Now.AddHours(1);
+        selectedRegistryId = "";
+        selectedRegistry = null;
+        registryImages = null;
+        selectedImageRepository = "";
+        selectedImageTags = null;
+        selectedImageTag = "";
         showModal = true;
     }
 
@@ -250,6 +371,12 @@
     {
         showModal = false;
         jobForm = new() { Parameters = new() };
+        selectedRegistryId = "";
+        selectedRegistry = null;
+        registryImages = null;
+        selectedImageRepository = "";
+        selectedImageTags = null;
+        selectedImageTag = "";
     }
 
     private void SetScheduleType(bool recurring)

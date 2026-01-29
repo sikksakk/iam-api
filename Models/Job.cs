@@ -20,6 +20,11 @@ public class Job
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public DateTime? ScheduledFor { get; set; }
+    
+    // ACR token management
+    public Guid? RegistryId { get; set; }
+    public Guid? AcrScopeMapId { get; set; }
+    public Guid? AcrTokenId { get; set; }
 }
 
 public enum JobStatus

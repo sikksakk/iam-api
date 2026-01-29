@@ -9,10 +9,13 @@ public class CreateJobRequest
     public string? RegistryServer { get; set; }
     public string? RegistryUsername { get; set; }
     public string? RegistryPassword { get; set; }
+    public Guid? RegistryId { get; set; }  // ACR registry ID for automatic token creation
+    public string? ImageRepository { get; set; }  // Selected repository from ACR
     public JobType JobType { get; set; }
     public bool IsWhatIf { get; set; }
     public string? Schedule { get; set; }
     public Dictionary<string, string> Parameters { get; set; } = new();
+    public DateTime? ScheduledFor { get; set; }
 }
 
 public class CreateLogRequest
