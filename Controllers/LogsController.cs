@@ -12,11 +12,13 @@ public class LogsController : ControllerBase
 {
     private readonly IDataStore _dataStore;
     private readonly ILogger<LogsController> _logger;
+    private readonly IConsoleLogService _consoleLogService;
 
-    public LogsController(IDataStore dataStore, ILogger<LogsController> logger)
+    public LogsController(IDataStore dataStore, ILogger<LogsController> logger, IConsoleLogService consoleLogService)
     {
         _dataStore = dataStore;
         _logger = logger;
+        _consoleLogService = consoleLogService;
     }
 
     /// <summary>
@@ -63,5 +65,26 @@ public class LogsController : ControllerBase
         _logger.LogDebug("Log entry created for job {JobId}", request.JobId);
         
         return CreatedAtAction(nameof(GetLogs), new { jobId = createdLog.JobId }, createdLog);
+    }
+
+    /// <summary>
+    /// Get live console logs from the API server
+    /// </summary>
+    [HttpGet("console")]
+    public ActionResult<IEnumerable<ConsoleLogEntry>> GetConsoleLogs([FromQuery] int count = 500, [FromQuery] string? level = null)
+    {
+        var logs = _consoleLogService.GetLogs(count, level);
+        return Ok(logs);
+    }
+
+    /// <summary>
+    /// Clear console logs
+    /// </summary>
+    [HttpDelete("console")]
+    public ActionResult ClearConsoleLogs()
+    {
+        _consoleLogService.Clear();
+        _logger.LogInformation("Console logs cleared");
+        return NoContent();
     }
 }

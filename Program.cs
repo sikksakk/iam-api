@@ -61,6 +61,9 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IContainerRegistryService, ContainerRegistryService>();
 builder.Services.AddHostedService<IamApi.CertificateMaintenanceWorker>();
 
+// Console log capture service
+builder.Services.AddSingleton<IConsoleLogService, ConsoleLogService>();
+
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
@@ -143,6 +146,11 @@ builder.Services.AddCors(options =>
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
+
+// Register console log provider to capture logs
+var consoleLogService = app.Services.GetRequiredService<IConsoleLogService>();
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+loggerFactory.AddProvider(new ConsoleLogProvider(consoleLogService));
 
 // Perform certificate cleanup on startup
 var logger = app.Services.GetRequiredService<ILogger<Program>>();

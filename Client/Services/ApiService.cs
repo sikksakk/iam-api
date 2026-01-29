@@ -293,6 +293,22 @@ public class ApiService
         return await HandleResponse<List<LogEntry>>(response);
     }
 
+    public async Task<List<ConsoleLogEntry>?> GetConsoleLogs(int count = 500, string? level = null)
+    {
+        await SetAuthHeader();
+        var url = $"/api/logs/console?count={count}";
+        if (!string.IsNullOrEmpty(level))
+            url += $"&level={level}";
+        var response = await _http.GetAsync(url);
+        return await HandleResponse<List<ConsoleLogEntry>>(response);
+    }
+
+    public async Task ClearConsoleLogs()
+    {
+        await SetAuthHeader();
+        await _http.DeleteAsync("/api/logs/console");
+    }
+
     // Certificates
     public async Task<List<Certificate>?> GetCertificates()
     {

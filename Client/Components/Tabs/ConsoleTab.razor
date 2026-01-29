@@ -1,0 +1,135 @@
+@inject ApiService Api
+@inject ToastService Toast
+@implements IDisposable
+
+<div class="tab-content">
+    <div class="tab-header">
+        <h2>🖥️ Console Logs</h2>
+        <div class="console-controls">
+            <select @bind="selectedLevel" @bind:after="LoadLogs" class="form-control filter-select">
+                <option value="">All Levels</option>
+                <option value="Debug">Debug</option>
+                <option value="Info">Info</option>
+                <option value="Warn">Warning</option>
+                <option value="Error">Error</option>
+            </select>
+            <button class="refresh-btn" @onclick="LoadLogs" disabled="@isLoading">🔄 Refresh</button>
+            <button class="clear-btn" @onclick="ClearLogs" disabled="@isLoading">🧹 Clear</button>
+            <label class="auto-refresh-label">
+                <input type="checkbox" @bind="autoRefresh" @bind:after="ToggleAutoRefresh" />
+                Auto-refresh
+            </label>
+        </div>
+    </div>
+
+    <div class="console-output">
+        @if (isLoading && logs.Count == 0)
+        {
+            <p>Loading logs...</p>
+        }
+        else if (logs.Count == 0)
+        {
+            <p class="no-logs">No console logs available.</p>
+        }
+        else
+        {
+            @foreach (var log in logs)
+            {
+                var levelClass = log.Level.ToLower() switch
+                {
+                    "debug" => "log-debug",
+                    "info" => "log-info",
+                    "warn" => "log-warn",
+                    "error" or "critical" => "log-error",
+                    _ => "log-info"
+                };
+                <div class="console-entry @levelClass">
+                    <span class="console-timestamp">@log.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff")</span>
+                    <span class="console-level">@log.Level</span>
+                    <span class="console-category">@log.Category</span>
+                    <span class="console-message">@log.Message</span>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<ConsoleLogEntry> logs = new();
+    private bool isLoading = true;
+    private string selectedLevel = "";
+    private bool autoRefresh = true;
+    private System.Threading.Timer? refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogs();
+        StartAutoRefresh();
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+
+    private void StartAutoRefresh()
+    {
+        refreshTimer?.Dispose();
+        if (autoRefresh)
+        {
+            refreshTimer = new System.Threading.Timer(async _ =>
+            {
+                await InvokeAsync(async () =>
+                {
+                    await LoadLogs();
+                    StateHasChanged();
+                });
+            }, null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }
+    }
+
+    private void ToggleAutoRefresh()
+    {
+        if (autoRefresh)
+        {
+            StartAutoRefresh();
+        }
+        else
+        {
+            refreshTimer?.Dispose();
+            refreshTimer = null;
+        }
+    }
+
+    private async Task LoadLogs()
+    {
+        try
+        {
+            isLoading = true;
+            var level = string.IsNullOrEmpty(selectedLevel) ? null : selectedLevel;
+            logs = await Api.GetConsoleLogs(500, level) ?? new();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load logs: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ClearLogs()
+    {
+        try
+        {
+            await Api.ClearConsoleLogs();
+            await Toast.ShowSuccess("Console logs cleared");
+            await LoadLogs();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to clear logs: {ex.Message}");
+        }
+    }
+}

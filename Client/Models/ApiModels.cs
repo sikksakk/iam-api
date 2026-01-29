@@ -162,6 +162,14 @@ public class LogEntry
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
+public class ConsoleLogEntry
+{
+    public DateTime Timestamp { get; set; }
+    public string Level { get; set; } = "Info";
+    public string Message { get; set; } = string.Empty;
+    public string? Category { get; set; }
+}
+
 public class LoginRequest
 {
     public string Username { get; set; } = string.Empty;

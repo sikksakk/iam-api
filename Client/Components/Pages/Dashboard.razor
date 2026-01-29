@@ -52,10 +52,14 @@
         {
             <CertificatesTab />
         }
+        else if (activeTab == "console")
+        {
+            <ConsoleTab />
+        }
     </div>
 
     <footer class="dashboard-footer">
-        <div class="build-info">v@(buildVersion)</div>
+        <div class="build-info" @onclick="ToggleConsole" title="Click for console logs">v@(buildVersion)</div>
     </footer>
 
 @code {
@@ -82,11 +86,34 @@
         {
             username = "Unknown";
         }
+
+        // Register keyboard shortcut for console
+        await JS.InvokeVoidAsync("eval", @"
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === '`') {
+                    e.preventDefault();
+                    DotNet.invokeMethodAsync('Client', 'ToggleConsoleFromJs');
+                }
+            });
+        ");
     }
 
     private void SwitchTab(string tab)
     {
         activeTab = tab;
+        StateHasChanged();
+    }
+
+    private void ToggleConsole()
+    {
+        if (activeTab == "console")
+        {
+            activeTab = "orchestrators";
+        }
+        else
+        {
+            activeTab = "console";
+        }
         StateHasChanged();
     }
 
