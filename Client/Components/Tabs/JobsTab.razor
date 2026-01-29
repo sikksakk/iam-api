@@ -1,6 +1,7 @@
 @inject ApiService Api
 @inject ToastService Toast
 @implements IDisposable
+@using NCrontab
 
 <div class="tab-content">
     <div class="tab-header">
@@ -46,6 +47,9 @@
                     <th class="sortable" @onclick='() => Sort("Schedule")'>
                         <span class="sort-header">Schedule <span class="sort-icon @GetSortClass("Schedule")"></span></span>
                     </th>
+                    <th class="sortable" @onclick='() => Sort("NextRun")'>
+                        <span class="sort-header">Next Run <span class="sort-icon @GetSortClass("NextRun")"></span></span>
+                    </th>
                     <th class="sortable" @onclick='() => Sort("CreatedAt")'>
                         <span class="sort-header">Created <span class="sort-icon @GetSortClass("CreatedAt")"></span></span>
                     </th>
@@ -66,6 +70,7 @@
                     </th>
                     <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByImage" @bind:event="oninput" /></th>
                     <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterBySchedule" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByNextRun" @bind:event="oninput" /></th>
                     <th></th>
                     <th></th>
                 </tr>
@@ -95,7 +100,18 @@
                         <td>@job.Name</td>
                         <td><span class="status-badge @statusClass">@statusText</span></td>
                         <td>@job.ContainerImage</td>
-                        <td>@(job.Schedule ?? "One-time")</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(job.Schedule))
+                            {
+                                <span>@job.Schedule</span>
+                                <button class="schedule-preview-btn" @onclick="() => OpenSchedulePreview(job)" title="View upcoming runs">📅</button>
+                            }
+                            else
+                            {
+                                <span>One-time</span>
+                            }
+                        </td>
+                        <td>@GetNextRunDisplay(job)</td>
                         <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
                             <button class="view-btn" @onclick="() => ViewLogs(job)" title="View Logs">📜 Logs</button>
@@ -311,6 +327,32 @@
     </div>
 }
 
+@if (showSchedulePreviewModal && selectedScheduleJob != null)
+{
+    <div class="modal-overlay" @onclick="CloseSchedulePreview">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>📅 Upcoming Runs: @selectedScheduleJob.Name</h3>
+                <button class="close-btn" @onclick="CloseSchedulePreview">✖</button>
+            </div>
+            <div class="schedule-preview-content">
+                <p class="schedule-info"><strong>Schedule:</strong> @selectedScheduleJob.Schedule</p>
+                <h4>Next 5 Executions:</h4>
+                <ul class="upcoming-runs-list">
+                    @foreach (var run in upcomingRuns)
+                    {
+                        <li>
+                            <span class="run-date">@run.ToString("dddd, yyyy-MM-dd")</span>
+                            <span class="run-time">@run.ToString("HH:mm:ss")</span>
+                            <span class="run-relative">(@GetRelativeTime(run))</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Job> jobs = new();
     private List<Customer> customers = new();
@@ -342,10 +384,17 @@
     private string filterByStatus = "";
     private string filterByImage = "";
     private string filterBySchedule = "";
+    private string filterByNextRun = "";
+
+    // Schedule preview
+    private bool showSchedulePreviewModal = false;
+    private Job? selectedScheduleJob;
+    private List<DateTime> upcomingRuns = new();
 
     private bool HasActiveFilters => !string.IsNullOrEmpty(filterById) || !string.IsNullOrEmpty(filterByCustomer) || 
                                       !string.IsNullOrEmpty(filterByName) || !string.IsNullOrEmpty(filterByStatus) ||
-                                      !string.IsNullOrEmpty(filterByImage) || !string.IsNullOrEmpty(filterBySchedule);
+                                      !string.IsNullOrEmpty(filterByImage) || !string.IsNullOrEmpty(filterBySchedule) ||
+                                      !string.IsNullOrEmpty(filterByNextRun);
 
     private IEnumerable<Job> FilteredJobs
     {
@@ -365,6 +414,8 @@
                 result = result.Where(j => j.ContainerImage?.Contains(filterByImage, StringComparison.OrdinalIgnoreCase) == true);
             if (!string.IsNullOrEmpty(filterBySchedule))
                 result = result.Where(j => (j.Schedule ?? "One-time").Contains(filterBySchedule, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(filterByNextRun))
+                result = result.Where(j => GetNextRunDisplay(j).Contains(filterByNextRun, StringComparison.OrdinalIgnoreCase));
 
             result = sortColumn switch
             {
@@ -374,6 +425,7 @@
                 "Status" => sortAscending ? result.OrderBy(j => j.Status) : result.OrderByDescending(j => j.Status),
                 "ContainerImage" => sortAscending ? result.OrderBy(j => j.ContainerImage) : result.OrderByDescending(j => j.ContainerImage),
                 "Schedule" => sortAscending ? result.OrderBy(j => j.Schedule ?? "") : result.OrderByDescending(j => j.Schedule ?? ""),
+                "NextRun" => sortAscending ? result.OrderBy(j => GetNextRun(j) ?? DateTime.MaxValue) : result.OrderByDescending(j => GetNextRun(j) ?? DateTime.MinValue),
                 "CreatedAt" => sortAscending ? result.OrderBy(j => j.CreatedAt) : result.OrderByDescending(j => j.CreatedAt),
                 _ => result
             };
@@ -407,6 +459,7 @@
         filterByStatus = "";
         filterByImage = "";
         filterBySchedule = "";
+        filterByNextRun = "";
     }
 
     protected override async Task OnInitializedAsync()
@@ -592,10 +645,12 @@
             {
                 jobForm.ScheduledFor = scheduledForInput;
                 jobForm.Schedule = null;
+                jobForm.JobType = "OneOff";
             }
             else
             {
                 jobForm.ScheduledFor = null;
+                jobForm.JobType = "Scheduled";
             }
 
             // Show specific status for ACR jobs
@@ -720,5 +775,88 @@
     {
         showLogsModal = false;
         selectedLogsJob = null;
+    }
+
+    private DateTime? GetNextRun(Job job)
+    {
+        if (string.IsNullOrEmpty(job.Schedule))
+            return null;
+        
+        try
+        {
+            var cron = CrontabSchedule.Parse(job.Schedule, new CrontabSchedule.ParseOptions { IncludingSeconds = job.Schedule.Split(' ').Length == 6 });
+            return cron.GetNextOccurrence(DateTime.Now);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string GetNextRunDisplay(Job job)
+    {
+        if (string.IsNullOrEmpty(job.Schedule))
+            return "—";
+        
+        var nextRun = GetNextRun(job);
+        if (nextRun == null)
+            return "Invalid schedule";
+        
+        return nextRun.Value.ToString("yyyy-MM-dd HH:mm");
+    }
+
+    private List<DateTime> GetUpcomingRuns(Job job, int count = 5)
+    {
+        var runs = new List<DateTime>();
+        if (string.IsNullOrEmpty(job.Schedule))
+            return runs;
+        
+        try
+        {
+            var cron = CrontabSchedule.Parse(job.Schedule, new CrontabSchedule.ParseOptions { IncludingSeconds = job.Schedule.Split(' ').Length == 6 });
+            var next = DateTime.Now;
+            for (int i = 0; i < count; i++)
+            {
+                next = cron.GetNextOccurrence(next);
+                runs.Add(next);
+                next = next.AddSeconds(1); // Move past this occurrence
+            }
+        }
+        catch
+        {
+            // Invalid cron expression
+        }
+        
+        return runs;
+    }
+
+    private void OpenSchedulePreview(Job job)
+    {
+        selectedScheduleJob = job;
+        upcomingRuns = GetUpcomingRuns(job, 5);
+        showSchedulePreviewModal = true;
+    }
+
+    private void CloseSchedulePreview()
+    {
+        showSchedulePreviewModal = false;
+        selectedScheduleJob = null;
+        upcomingRuns.Clear();
+    }
+
+    private string GetRelativeTime(DateTime time)
+    {
+        var diff = time - DateTime.Now;
+        
+        if (diff.TotalMinutes < 1)
+            return "less than a minute";
+        if (diff.TotalMinutes < 60)
+            return $"in {(int)diff.TotalMinutes} minute{((int)diff.TotalMinutes == 1 ? "" : "s")}";
+        if (diff.TotalHours < 24)
+            return $"in {(int)diff.TotalHours} hour{((int)diff.TotalHours == 1 ? "" : "s")}";
+        if (diff.TotalDays < 7)
+            return $"in {(int)diff.TotalDays} day{((int)diff.TotalDays == 1 ? "" : "s")}";
+        
+        return $"in {(int)(diff.TotalDays / 7)} week{((int)(diff.TotalDays / 7) == 1 ? "" : "s")}";
     }
 }

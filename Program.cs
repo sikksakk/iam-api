@@ -60,6 +60,7 @@ builder.Services.AddSingleton<ICertificateService, CertificateService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IContainerRegistryService, ContainerRegistryService>();
 builder.Services.AddHostedService<IamApi.CertificateMaintenanceWorker>();
+builder.Services.AddHostedService<IamApi.JobSchedulingWorker>();
 
 // Console log capture service
 builder.Services.AddSingleton<IConsoleLogService, ConsoleLogService>();

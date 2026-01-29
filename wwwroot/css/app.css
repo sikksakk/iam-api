@@ -1458,3 +1458,72 @@ tr.expired td {
 .table-info-bar .record-count {
     font-weight: 500;
 }
+
+/* Schedule preview button */
+.schedule-preview-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    margin-left: 6px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.schedule-preview-btn:hover {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+/* Schedule preview modal content */
+.schedule-preview-content {
+    padding: 16px 0;
+}
+
+.schedule-info {
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.upcoming-runs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.upcoming-runs-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #f8fafc;
+    margin-bottom: 8px;
+    transition: background 0.2s;
+}
+
+.upcoming-runs-list li:hover {
+    background: #f1f5f9;
+}
+
+.run-date {
+    font-weight: 500;
+    color: #1e293b;
+    min-width: 180px;
+}
+
+.run-time {
+    font-family: monospace;
+    font-size: 0.95rem;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.run-relative {
+    color: #64748b;
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-left: auto;
+}
