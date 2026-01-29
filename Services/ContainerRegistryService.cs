@@ -329,7 +329,67 @@ public class ContainerRegistryService : IContainerRegistryService
 
     public async Task<List<AcrScopeMap>> ListScopeMapsAsync(Guid registryId)
     {
-        return await Task.FromResult(_dataStore.GetScopeMaps(registryId));
+        var registry = _dataStore.GetRegistry(registryId);
+        if (registry == null)
+        {
+            throw new InvalidOperationException($"Registry {registryId} not found");
+        }
+
+        if (string.IsNullOrEmpty(registry.SubscriptionId) || string.IsNullOrEmpty(registry.ResourceGroup))
+        {
+            _logger.LogWarning("Registry {Name} missing SubscriptionId or ResourceGroup", registry.Name);
+            return new List<AcrScopeMap>();
+        }
+
+        _logger.LogInformation("Listing scope maps for registry {Registry} from Azure", registry.Name);
+
+        var url = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
+                  $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
+                  $"/registries/{registry.Name}/scopeMaps?api-version=2023-07-01";
+
+        var accessToken = await GetAccessTokenAsync();
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await _httpClient.SendAsync(request);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to list scope maps: {StatusCode} - {Error}", response.StatusCode, errorContent);
+            throw new InvalidOperationException($"Failed to list scope maps: {response.StatusCode}");
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        _logger.LogDebug("Scope maps response: {Content}", content);
+        
+        var result = JsonSerializer.Deserialize<AzureListResponse<AzureScopeMapResource>>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        var scopeMaps = new List<AcrScopeMap>();
+        if (result?.Value != null)
+        {
+            foreach (var item in result.Value)
+            {
+                // Skip system scope maps (they start with _repositories)
+                if (item.Name.StartsWith("_"))
+                    continue;
+                    
+                scopeMaps.Add(new AcrScopeMap
+                {
+                    Id = Guid.NewGuid(), // Local ID
+                    Name = item.Name,
+                    Description = item.Properties?.Description ?? "",
+                    Actions = item.Properties?.Actions ?? new List<string>(),
+                    RegistryId = registryId,
+                    ResourceId = item.Id ?? "",
+                    CreatedAt = item.Properties?.CreationDate ?? DateTime.UtcNow,
+                    AssociatedTokenIds = new List<Guid>()
+                });
+            }
+        }
+        
+        _logger.LogInformation("Found {Count} scope maps for registry {Registry}", scopeMaps.Count, registry.Name);
+        return scopeMaps;
     }
 
     public async Task<bool> DeleteScopeMapAsync(Guid scopeMapId)
@@ -491,7 +551,67 @@ public class ContainerRegistryService : IContainerRegistryService
 
     public async Task<List<AcrToken>> ListTokensAsync(Guid registryId)
     {
-        return await Task.FromResult(_dataStore.GetTokens(registryId));
+        var registry = _dataStore.GetRegistry(registryId);
+        if (registry == null)
+        {
+            throw new InvalidOperationException($"Registry {registryId} not found");
+        }
+
+        if (string.IsNullOrEmpty(registry.SubscriptionId) || string.IsNullOrEmpty(registry.ResourceGroup))
+        {
+            _logger.LogWarning("Registry {Name} missing SubscriptionId or ResourceGroup", registry.Name);
+            return new List<AcrToken>();
+        }
+
+        _logger.LogInformation("Listing tokens for registry {Registry} from Azure", registry.Name);
+
+        var url = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
+                  $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
+                  $"/registries/{registry.Name}/tokens?api-version=2023-07-01";
+
+        var accessToken = await GetAccessTokenAsync();
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        var response = await _httpClient.SendAsync(request);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to list tokens: {StatusCode} - {Error}", response.StatusCode, errorContent);
+            throw new InvalidOperationException($"Failed to list tokens: {response.StatusCode}");
+        }
+
+        var content = await response.Content.ReadAsStringAsync();
+        _logger.LogDebug("Tokens response: {Content}", content);
+        
+        var result = JsonSerializer.Deserialize<AzureListResponse<AzureTokenResource>>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        var tokens = new List<AcrToken>();
+        if (result?.Value != null)
+        {
+            foreach (var item in result.Value)
+            {
+                var status = item.Properties?.Status?.Equals("enabled", StringComparison.OrdinalIgnoreCase) == true 
+                    ? TokenStatus.Active 
+                    : TokenStatus.Disabled;
+                    
+                tokens.Add(new AcrToken
+                {
+                    Id = Guid.NewGuid(), // Local ID
+                    Name = item.Name,
+                    Username = item.Name, // Token name is the username
+                    RegistryId = registryId,
+                    ResourceId = item.Id ?? "",
+                    Status = status,
+                    CreatedAt = item.Properties?.CreationDate ?? DateTime.UtcNow,
+                    ExpiresAt = null // Azure doesn't return expiry directly on tokens
+                });
+            }
+        }
+        
+        _logger.LogInformation("Found {Count} tokens for registry {Registry}", tokens.Count, registry.Name);
+        return tokens;
     }
 
     public async Task<bool> DisableTokenAsync(Guid tokenId)
@@ -681,5 +801,39 @@ public class ContainerRegistryService : IContainerRegistryService
     private class AzurePassword
     {
         public string? Value { get; set; }
+    }
+
+    // Azure Management API list response wrapper
+    private class AzureListResponse<T>
+    {
+        public List<T>? Value { get; set; }
+    }
+
+    private class AzureScopeMapResource
+    {
+        public string? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public AzureScopeMapProperties? Properties { get; set; }
+    }
+
+    private class AzureScopeMapProperties
+    {
+        public string? Description { get; set; }
+        public List<string>? Actions { get; set; }
+        public DateTime? CreationDate { get; set; }
+    }
+
+    private class AzureTokenResource
+    {
+        public string? Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public AzureTokenProperties? Properties { get; set; }
+    }
+
+    private class AzureTokenProperties
+    {
+        public string? Status { get; set; }
+        public string? ScopeMapId { get; set; }
+        public DateTime? CreationDate { get; set; }
     }
 }
