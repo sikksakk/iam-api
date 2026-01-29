@@ -569,10 +569,12 @@ public class ContainerRegistryService : IContainerRegistryService
         
         _logger.LogInformation("Token {Name} is fully provisioned, generating credentials...", request.Name);
 
-        // Generate password for the token
+        // Generate password for the token - NOTE: generateCredentials is at REGISTRY level, not TOKEN level
         var tokenResourceId = $"/subscriptions/{registry.SubscriptionId}/resourceGroups/{registry.ResourceGroup}" +
                              $"/providers/Microsoft.ContainerRegistry/registries/{registry.Name}/tokens/{request.Name}";
-        var passwordUrl = $"https://management.azure.com{tokenResourceId}/generateCredentials?api-version=2023-07-01";
+        var passwordUrl = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
+                         $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
+                         $"/registries/{registry.Name}/generateCredentials?api-version=2023-07-01";
 
         var passwordPayload = new
         {
@@ -581,6 +583,7 @@ public class ContainerRegistryService : IContainerRegistryService
             expiry = request.ExpiryInDays.HasValue ? DateTime.UtcNow.AddDays(request.ExpiryInDays.Value).ToString("o") : (string?)null
         };
         
+        _logger.LogDebug("generateCredentials URL: {Url}", passwordUrl);
         _logger.LogDebug("generateCredentials payload: {Payload}", JsonSerializer.Serialize(passwordPayload));
 
         HttpResponseMessage? passwordResponse = null;

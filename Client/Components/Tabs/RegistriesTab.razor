@@ -257,7 +257,7 @@
                     }
                     else
                     {
-                        <button class="add-btn" @onclick='() => { showCreateToken = true; LoadScopeMaps(); }'>➕ Create Token</button>
+                        <button class="add-btn" @onclick='async () => { showCreateToken = true; await LoadScopeMaps(); }'>➕ Create Token</button>
                     }
                 </div>
             }
@@ -508,10 +508,10 @@
         }
     }
 
-    private void ViewScopeMapActions(AcrScopeMap scopeMap)
+    private async Task ViewScopeMapActions(AcrScopeMap scopeMap)
     {
         var actions = string.Join("\n", scopeMap.Actions);
-        Toast.ShowInfo($"Scope Map Actions:\n{actions}");
+        await Toast.ShowInfo($"Scope Map Actions:\n{actions}");
     }
 
     private async Task CreateScopeMap()
