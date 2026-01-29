@@ -49,6 +49,14 @@ public class OrchestratorsController : ControllerBase
             return BadRequest("Orchestrator ID is required");
         }
 
+        // Preserve PendingUpdate flag from existing record
+        var existingOrchestrators = _dataStore.GetOrchestrators();
+        var existing = existingOrchestrators.FirstOrDefault(o => o.Id == orchestrator.Id);
+        if (existing != null)
+        {
+            orchestrator.PendingUpdate = existing.PendingUpdate;
+        }
+
         orchestrator.LastHeartbeat = DateTime.UtcNow;
         _dataStore.UpsertOrchestrator(orchestrator);
 
