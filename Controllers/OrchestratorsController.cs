@@ -82,4 +82,63 @@ public class OrchestratorsController : ControllerBase
         _dataStore.RemoveOrchestrator(id);
         return NoContent();
     }
+
+    /// <summary>
+    /// Request an orchestrator to update itself
+    /// </summary>
+    [HttpPost("{id}/update")]
+    public ActionResult RequestUpdate(string id)
+    {
+        var orchestrators = _dataStore.GetOrchestrators();
+        var orchestrator = orchestrators.FirstOrDefault(o => o.Id == id);
+        
+        if (orchestrator == null)
+        {
+            return NotFound();
+        }
+
+        orchestrator.PendingUpdate = true;
+        _dataStore.UpsertOrchestrator(orchestrator);
+        
+        _logger.LogInformation("Update requested for orchestrator {Id}", id);
+        return Ok(new { message = "Update requested", orchestratorId = id });
+    }
+
+    /// <summary>
+    /// Check if an orchestrator has a pending update (called by orchestrator during heartbeat)
+    /// </summary>
+    [HttpGet("{id}/update-status")]
+    public ActionResult GetUpdateStatus(string id)
+    {
+        var orchestrators = _dataStore.GetOrchestrators();
+        var orchestrator = orchestrators.FirstOrDefault(o => o.Id == id);
+        
+        if (orchestrator == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new { pendingUpdate = orchestrator.PendingUpdate });
+    }
+
+    /// <summary>
+    /// Acknowledge that update is starting (clears the pending flag)
+    /// </summary>
+    [HttpPost("{id}/update-ack")]
+    public ActionResult AcknowledgeUpdate(string id)
+    {
+        var orchestrators = _dataStore.GetOrchestrators();
+        var orchestrator = orchestrators.FirstOrDefault(o => o.Id == id);
+        
+        if (orchestrator == null)
+        {
+            return NotFound();
+        }
+
+        orchestrator.PendingUpdate = false;
+        _dataStore.UpsertOrchestrator(orchestrator);
+        
+        _logger.LogInformation("Update acknowledged by orchestrator {Id}", id);
+        return Ok();
+    }
 }

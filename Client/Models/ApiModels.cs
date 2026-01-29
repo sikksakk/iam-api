@@ -8,6 +8,7 @@ public class Orchestrator
     public string Version { get; set; } = "1.0.0";
     public string HostName { get; set; } = string.Empty;
     public bool? IsOnline { get; set; }
+    public bool PendingUpdate { get; set; } = false;
 }
 
 public class Job

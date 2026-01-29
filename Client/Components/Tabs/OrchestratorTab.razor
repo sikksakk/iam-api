@@ -40,8 +40,13 @@
                         <td>@orch.LastHeartbeat.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td>
                             <span class="status-badge @status.cssClass">@status.text</span>
+                            @if (orch.PendingUpdate)
+                            {
+                                <span class="status-badge status-pending" title="Update pending">🔄</span>
+                            }
                         </td>
                         <td>
+                            <button class="update-btn" @onclick="() => RequestUpdate(orch.Id)" disabled="@(!status.isAlive || orch.PendingUpdate)" title="Request Update">🔄 Update</button>
                             <button class="delete-btn" @onclick="() => DeleteOrchestrator(orch.Id)">Delete</button>
                         </td>
                     </tr>
@@ -133,6 +138,20 @@
         catch (Exception ex)
         {
             await Toast.ShowError($"Cleanup failed: {ex.Message}");
+        }
+    }
+
+    private async Task RequestUpdate(string id)
+    {
+        try
+        {
+            await Api.RequestOrchestratorUpdate(id);
+            await Toast.ShowSuccess("Update requested - orchestrator will restart on next cycle");
+            await LoadOrchestrators();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to request update: {ex.Message}");
         }
     }
 }

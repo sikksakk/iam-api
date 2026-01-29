@@ -59,6 +59,7 @@
                         <td>@(job.Schedule ?? "One-time")</td>
                         <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
+                            <button class="view-btn" @onclick="() => ViewLogs(job)" title="View Logs">📜 Logs</button>
                             <button class="copy-btn" @onclick="() => CopyJob(job)">📋 Copy</button>
                             <button class="retry-btn" @onclick="() => RetryJob(job)">🔄 Retry</button>
                             <button class="delete-btn" @onclick="() => DeleteJob(job.Id)">🗑️ Delete</button>
@@ -204,6 +205,69 @@
                     }
                 </div>
             </EditForm>
+        </div>
+    </div>
+}
+
+@if (showLogsModal && selectedLogsJob != null)
+{
+    <div class="modal-overlay" @onclick="CloseLogsModal">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>📜 Logs: @selectedLogsJob.Name</h3>
+                <button class="close-btn" @onclick="CloseLogsModal">✖</button>
+            </div>
+            <div class="logs-modal-content">
+                @if (isLoadingLogs)
+                {
+                    <p>Loading logs...</p>
+                }
+                else
+                {
+                    <div class="logs-container">
+                        <div class="log-section">
+                            <h4>Container Logs</h4>
+                            <div class="log-output">
+                                @if (!containerLogs.Any())
+                                {
+                                    <p class="no-logs">No container logs available.</p>
+                                }
+                                else
+                                {
+                                    @foreach (var log in containerLogs.OrderBy(l => l.Timestamp))
+                                    {
+                                        <div class="log-entry log-@log.Level.ToLower()">
+                                            <span class="log-timestamp">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                            <span class="log-level">@log.Level</span>
+                                            <span class="log-message">@log.Message</span>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                        <div class="log-section">
+                            <h4>Orchestrator Logs</h4>
+                            <div class="log-output">
+                                @if (!orchestratorLogs.Any())
+                                {
+                                    <p class="no-logs">No orchestrator logs available.</p>
+                                }
+                                else
+                                {
+                                    @foreach (var log in orchestratorLogs.OrderBy(l => l.Timestamp))
+                                    {
+                                        <div class="log-entry log-@log.Level.ToLower()">
+                                            <span class="log-timestamp">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                                            <span class="log-level">@log.Level</span>
+                                            <span class="log-message">@log.Message</span>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
         </div>
     </div>
 }
@@ -502,5 +566,42 @@
         {
             await Toast.ShowError($"Failed to retry job: {ex.Message}");
         }
+    }
+
+    private Job? selectedLogsJob;
+    private List<LogEntry> containerLogs = new();
+    private List<LogEntry> orchestratorLogs = new();
+    private bool showLogsModal = false;
+    private bool isLoadingLogs = false;
+
+    private async Task ViewLogs(Job job)
+    {
+        selectedLogsJob = job;
+        showLogsModal = true;
+        isLoadingLogs = true;
+        containerLogs = new();
+        orchestratorLogs = new();
+        StateHasChanged();
+
+        try
+        {
+            var allLogs = await Api.GetLogs(job.Id) ?? new();
+            containerLogs = allLogs.Where(l => l.Source?.Equals("container", StringComparison.OrdinalIgnoreCase) == true).ToList();
+            orchestratorLogs = allLogs.Where(l => l.Source?.Equals("orchestrator", StringComparison.OrdinalIgnoreCase) == true).ToList();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to load logs: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingLogs = false;
+        }
+    }
+
+    private void CloseLogsModal()
+    {
+        showLogsModal = false;
+        selectedLogsJob = null;
     }
 }

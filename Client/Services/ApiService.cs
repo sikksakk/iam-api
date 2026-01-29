@@ -100,6 +100,13 @@ public class ApiService
         return await HandleResponse<CleanupResult>(response);
     }
 
+    public async Task RequestOrchestratorUpdate(string id)
+    {
+        await SetAuthHeader();
+        var response = await _http.PostAsync($"/api/orchestrators/{id}/update", null);
+        await HandleResponse<object>(response);
+    }
+
     // Jobs
     public async Task<List<Job>?> GetJobs()
     {
