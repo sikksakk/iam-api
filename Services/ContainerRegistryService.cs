@@ -138,7 +138,9 @@ public class ContainerRegistryService : IContainerRegistryService
         }
 
         var content = await response.Content.ReadAsStringAsync();
+        _logger.LogInformation("ACR catalog response: {Content}", content);
         var result = JsonSerializer.Deserialize<AcrCatalogResponse>(content);
+        _logger.LogInformation("Parsed {Count} repositories from catalog", result?.Repositories?.Count ?? 0);
         
         return result?.Repositories ?? new List<string>();
     }
@@ -636,16 +638,19 @@ public class ContainerRegistryService : IContainerRegistryService
     // Internal response models for Azure API
     private class AcrCatalogResponse
     {
+        [System.Text.Json.Serialization.JsonPropertyName("repositories")]
         public List<string>? Repositories { get; set; }
     }
 
     private class AcrTagsResponse
     {
+        [System.Text.Json.Serialization.JsonPropertyName("tags")]
         public List<AcrTag>? Tags { get; set; }
     }
 
     private class AcrTag
     {
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
     }
 
