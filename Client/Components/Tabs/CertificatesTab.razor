@@ -5,7 +5,7 @@
 <div class="tab-content">
     <div class="tab-header">
         <h2>Certificates</h2>
-        <button class="btn-secondary" @onclick="CleanupExpired">🗑️ Cleanup Expired</button>
+        <button class="cleanup-btn" @onclick="CleanupExpired">🗑️ Cleanup Expired</button>
     </div>
 
     @if (isLoading)
@@ -18,19 +18,52 @@
     }
     else
     {
-        <table>
+        <div class="table-info-bar">
+            <span class="record-count">Showing @FilteredCertificates.Count() of @certificates.Count records</span>
+            @if (HasActiveFilters)
+            {
+                <button class="clear-filters-btn" @onclick="ClearFilters">Clear Filters</button>
+            }
+        </div>
+        <table class="sortable-table">
             <thead>
                 <tr>
-                    <th>Customer</th>
-                    <th>Thumbprint</th>
-                    <th>Subject</th>
-                    <th>Created</th>
-                    <th>Expires</th>
-                    <th>Status</th>
+                    <th class="sortable" @onclick='() => Sort("CustomerName")'>
+                        <span class="sort-header">Customer <span class="sort-icon @GetSortClass("CustomerName")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Thumbprint")'>
+                        <span class="sort-header">Thumbprint <span class="sort-icon @GetSortClass("Thumbprint")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Subject")'>
+                        <span class="sort-header">Subject <span class="sort-icon @GetSortClass("Subject")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("CreatedAt")'>
+                        <span class="sort-header">Created <span class="sort-icon @GetSortClass("CreatedAt")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("ExpiresAt")'>
+                        <span class="sort-header">Expires <span class="sort-icon @GetSortClass("ExpiresAt")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Status")'>
+                        <span class="sort-header">Status <span class="sort-icon @GetSortClass("Status")"></span></span>
+                    </th>
+                </tr>
+                <tr class="filter-row">
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByCustomer" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByThumbprint" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterBySubject" @bind:event="oninput" /></th>
+                    <th></th>
+                    <th></th>
+                    <th>
+                        <select class="filter-input" @bind="filterByStatus">
+                            <option value="">All</option>
+                            <option value="Active">Active</option>
+                            <option value="Expired">Expired</option>
+                        </select>
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var cert in certificates)
+                @foreach (var cert in FilteredCertificates)
                 {
                     var isExpired = cert.IsExpired;
                     <tr class="@(isExpired ? "expired-cert" : "")">
@@ -53,6 +86,77 @@
     private List<Certificate> certificates = new();
     private bool isLoading = true;
     private System.Threading.Timer? refreshTimer;
+
+    // Sorting
+    private string sortColumn = "ExpiresAt";
+    private bool sortAscending = true;
+
+    // Filtering
+    private string filterByCustomer = "";
+    private string filterByThumbprint = "";
+    private string filterBySubject = "";
+    private string filterByStatus = "";
+
+    private bool HasActiveFilters => !string.IsNullOrEmpty(filterByCustomer) || !string.IsNullOrEmpty(filterByThumbprint) || 
+                                      !string.IsNullOrEmpty(filterBySubject) || !string.IsNullOrEmpty(filterByStatus);
+
+    private IEnumerable<Certificate> FilteredCertificates
+    {
+        get
+        {
+            var result = certificates.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(filterByCustomer))
+                result = result.Where(c => c.CustomerName?.Contains(filterByCustomer, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByThumbprint))
+                result = result.Where(c => c.Thumbprint?.Contains(filterByThumbprint, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterBySubject))
+                result = result.Where(c => c.CustomerName?.Contains(filterBySubject, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByStatus))
+            {
+                var isActive = filterByStatus.Equals("Active", StringComparison.OrdinalIgnoreCase);
+                result = result.Where(c => (c.ExpiresInMinutes > 0) == isActive);
+            }
+
+            result = sortColumn switch
+            {
+                "CustomerName" => sortAscending ? result.OrderBy(c => c.CustomerName) : result.OrderByDescending(c => c.CustomerName),
+                "Thumbprint" => sortAscending ? result.OrderBy(c => c.Thumbprint) : result.OrderByDescending(c => c.Thumbprint),
+                "Subject" => sortAscending ? result.OrderBy(c => c.CustomerName) : result.OrderByDescending(c => c.CustomerName),
+                "CreatedAt" => sortAscending ? result.OrderBy(c => c.CreatedAt) : result.OrderByDescending(c => c.CreatedAt),
+                "ExpiresAt" => sortAscending ? result.OrderBy(c => c.ExpiresAt) : result.OrderByDescending(c => c.ExpiresAt),
+                "Status" => sortAscending ? result.OrderBy(c => c.ExpiresInMinutes > 0) : result.OrderByDescending(c => c.ExpiresInMinutes > 0),
+                _ => result
+            };
+
+            return result;
+        }
+    }
+
+    private void Sort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private string GetSortClass(string column)
+    {
+        if (sortColumn != column) return "none";
+        return sortAscending ? "active asc" : "active desc";
+    }
+
+    private void ClearFilters()
+    {
+        filterByCustomer = "";
+        filterByThumbprint = "";
+        filterBySubject = "";
+        filterByStatus = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {

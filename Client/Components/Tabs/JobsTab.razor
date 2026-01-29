@@ -18,21 +18,60 @@
     }
     else
     {
-        <table>
+        <div class="table-info-bar">
+            <span class="record-count">Showing @FilteredJobs.Count() of @jobs.Count records</span>
+            @if (HasActiveFilters)
+            {
+                <button class="clear-filters-btn" @onclick="ClearFilters">Clear Filters</button>
+            }
+        </div>
+        <table class="sortable-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Customer</th>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Image</th>
-                    <th>Schedule</th>
-                    <th>Created</th>
+                    <th class="sortable" @onclick='() => Sort("Id")'>
+                        <span class="sort-header">ID <span class="sort-icon @GetSortClass("Id")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Customer")'>
+                        <span class="sort-header">Customer <span class="sort-icon @GetSortClass("Customer")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Name")'>
+                        <span class="sort-header">Name <span class="sort-icon @GetSortClass("Name")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Status")'>
+                        <span class="sort-header">Status <span class="sort-icon @GetSortClass("Status")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("ContainerImage")'>
+                        <span class="sort-header">Image <span class="sort-icon @GetSortClass("ContainerImage")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Schedule")'>
+                        <span class="sort-header">Schedule <span class="sort-icon @GetSortClass("Schedule")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("CreatedAt")'>
+                        <span class="sort-header">Created <span class="sort-icon @GetSortClass("CreatedAt")"></span></span>
+                    </th>
                     <th>Actions</th>
+                </tr>
+                <tr class="filter-row">
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterById" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByCustomer" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByName" @bind:event="oninput" /></th>
+                    <th>
+                        <select class="filter-input" @bind="filterByStatus">
+                            <option value="">All</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Running">Running</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Failed">Failed</option>
+                        </select>
+                    </th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByImage" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterBySchedule" @bind:event="oninput" /></th>
+                    <th></th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var job in jobs)
+                @foreach (var job in FilteredJobs)
                 {
                     var statusClass = job.Status switch
                     {
@@ -291,6 +330,84 @@
     private List<string>? selectedImageTags;
     private string selectedImageTag = "";
     private System.Threading.Timer? refreshTimer;
+
+    // Sorting
+    private string sortColumn = "CreatedAt";
+    private bool sortAscending = false;
+
+    // Filtering
+    private string filterById = "";
+    private string filterByCustomer = "";
+    private string filterByName = "";
+    private string filterByStatus = "";
+    private string filterByImage = "";
+    private string filterBySchedule = "";
+
+    private bool HasActiveFilters => !string.IsNullOrEmpty(filterById) || !string.IsNullOrEmpty(filterByCustomer) || 
+                                      !string.IsNullOrEmpty(filterByName) || !string.IsNullOrEmpty(filterByStatus) ||
+                                      !string.IsNullOrEmpty(filterByImage) || !string.IsNullOrEmpty(filterBySchedule);
+
+    private IEnumerable<Job> FilteredJobs
+    {
+        get
+        {
+            var result = jobs.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(filterById))
+                result = result.Where(j => j.Id.ToString().Contains(filterById, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(filterByCustomer))
+                result = result.Where(j => j.Customer?.Contains(filterByCustomer, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByName))
+                result = result.Where(j => j.Name?.Contains(filterByName, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByStatus))
+                result = result.Where(j => j.Status?.Equals(filterByStatus, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByImage))
+                result = result.Where(j => j.ContainerImage?.Contains(filterByImage, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterBySchedule))
+                result = result.Where(j => (j.Schedule ?? "One-time").Contains(filterBySchedule, StringComparison.OrdinalIgnoreCase));
+
+            result = sortColumn switch
+            {
+                "Id" => sortAscending ? result.OrderBy(j => j.Id) : result.OrderByDescending(j => j.Id),
+                "Customer" => sortAscending ? result.OrderBy(j => j.Customer) : result.OrderByDescending(j => j.Customer),
+                "Name" => sortAscending ? result.OrderBy(j => j.Name) : result.OrderByDescending(j => j.Name),
+                "Status" => sortAscending ? result.OrderBy(j => j.Status) : result.OrderByDescending(j => j.Status),
+                "ContainerImage" => sortAscending ? result.OrderBy(j => j.ContainerImage) : result.OrderByDescending(j => j.ContainerImage),
+                "Schedule" => sortAscending ? result.OrderBy(j => j.Schedule ?? "") : result.OrderByDescending(j => j.Schedule ?? ""),
+                "CreatedAt" => sortAscending ? result.OrderBy(j => j.CreatedAt) : result.OrderByDescending(j => j.CreatedAt),
+                _ => result
+            };
+
+            return result;
+        }
+    }
+
+    private void Sort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private string GetSortClass(string column)
+    {
+        if (sortColumn != column) return "none";
+        return sortAscending ? "active asc" : "active desc";
+    }
+
+    private void ClearFilters()
+    {
+        filterById = "";
+        filterByCustomer = "";
+        filterByName = "";
+        filterByStatus = "";
+        filterByImage = "";
+        filterBySchedule = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {

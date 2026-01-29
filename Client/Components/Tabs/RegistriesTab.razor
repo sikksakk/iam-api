@@ -17,17 +17,42 @@
     }
     else
     {
-        <table>
+        <div class="table-info-bar">
+            <span class="record-count">Showing @FilteredRegistries.Count() of @registries.Count records</span>
+            @if (HasActiveFilters)
+            {
+                <button class="clear-filters-btn" @onclick="ClearFilters">Clear Filters</button>
+            }
+        </div>
+        <table class="sortable-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Server</th>
-                    <th>Type</th>
+                    <th class="sortable" @onclick='() => Sort("Name")'>
+                        <span class="sort-header">Name <span class="sort-icon @GetSortClass("Name")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Server")'>
+                        <span class="sort-header">Server <span class="sort-icon @GetSortClass("Server")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Type")'>
+                        <span class="sort-header">Type <span class="sort-icon @GetSortClass("Type")"></span></span>
+                    </th>
                     <th>Actions</th>
+                </tr>
+                <tr class="filter-row">
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByName" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByServer" @bind:event="oninput" /></th>
+                    <th>
+                        <select class="filter-input" @bind="filterByType">
+                            <option value="">All</option>
+                            <option value="ACR">ACR</option>
+                            <option value="Generic">Generic</option>
+                        </select>
+                    </th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var reg in registries)
+                @foreach (var reg in FilteredRegistries)
                 {
                     <tr>
                         <td>@reg.Name</td>
@@ -324,6 +349,69 @@
     private CreateRegistryRequest newRegistry = new();
     private bool isLoading = true;
     private bool isSubmitting = false;
+
+    // Sorting
+    private string sortColumn = "Name";
+    private bool sortAscending = true;
+
+    // Filtering
+    private string filterByName = "";
+    private string filterByServer = "";
+    private string filterByType = "";
+
+    private bool HasActiveFilters => !string.IsNullOrEmpty(filterByName) || !string.IsNullOrEmpty(filterByServer) || !string.IsNullOrEmpty(filterByType);
+
+    private IEnumerable<ContainerRegistry> FilteredRegistries
+    {
+        get
+        {
+            var result = registries.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(filterByName))
+                result = result.Where(r => r.Name?.Contains(filterByName, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByServer))
+                result = result.Where(r => r.Server?.Contains(filterByServer, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByType))
+            {
+                var isAcr = filterByType.Equals("ACR", StringComparison.OrdinalIgnoreCase);
+                result = result.Where(r => (r.Type == "AzureContainerRegistry") == isAcr);
+            }
+
+            result = sortColumn switch
+            {
+                "Name" => sortAscending ? result.OrderBy(r => r.Name) : result.OrderByDescending(r => r.Name),
+                "Server" => sortAscending ? result.OrderBy(r => r.Server) : result.OrderByDescending(r => r.Server),
+                "Type" => sortAscending ? result.OrderBy(r => r.Type) : result.OrderByDescending(r => r.Type),
+                _ => result
+            };
+
+            return result;
+        }
+    }
+
+    private void Sort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private string GetSortClass(string column)
+    {
+        if (sortColumn != column) return "none";
+        return sortAscending ? "active asc" : "active desc";
+    }
+
+    private void ClearFilters()
+    {
+        filterByName = "";
+        filterByServer = "";
+        filterByType = "";
+    }
 
     // ACR Management
     private ContainerRegistry? selectedRegistry;

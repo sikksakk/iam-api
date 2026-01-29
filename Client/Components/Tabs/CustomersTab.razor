@@ -17,16 +17,32 @@
     }
     else
     {
-        <table>
+        <div class="table-info-bar">
+            <span class="record-count">Showing @FilteredCustomers.Count() of @customers.Count records</span>
+            @if (HasActiveFilters)
+            {
+                <button class="clear-filters-btn" @onclick="ClearFilters">Clear Filters</button>
+            }
+        </div>
+        <table class="sortable-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Description</th>
+                    <th class="sortable" @onclick='() => Sort("Name")'>
+                        <span class="sort-header">Name <span class="sort-icon @GetSortClass("Name")"></span></span>
+                    </th>
+                    <th class="sortable" @onclick='() => Sort("Description")'>
+                        <span class="sort-header">Description <span class="sort-icon @GetSortClass("Description")"></span></span>
+                    </th>
                     <th>Actions</th>
+                </tr>
+                <tr class="filter-row">
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByName" @bind:event="oninput" /></th>
+                    <th><input type="text" class="filter-input" placeholder="Filter..." @bind="filterByDescription" @bind:event="oninput" /></th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var customer in customers)
+                @foreach (var customer in FilteredCustomers)
                 {
                     <tr>
                         <td>@customer.Name</td>
@@ -78,6 +94,61 @@
     private bool isSubmitting = false;
     private bool showModal = false;
     private bool isEditMode = false;
+
+    // Sorting
+    private string sortColumn = "Name";
+    private bool sortAscending = true;
+
+    // Filtering
+    private string filterByName = "";
+    private string filterByDescription = "";
+
+    private bool HasActiveFilters => !string.IsNullOrEmpty(filterByName) || !string.IsNullOrEmpty(filterByDescription);
+
+    private IEnumerable<Customer> FilteredCustomers
+    {
+        get
+        {
+            var result = customers.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(filterByName))
+                result = result.Where(c => c.Name?.Contains(filterByName, StringComparison.OrdinalIgnoreCase) == true);
+            if (!string.IsNullOrEmpty(filterByDescription))
+                result = result.Where(c => c.Description?.Contains(filterByDescription, StringComparison.OrdinalIgnoreCase) == true);
+
+            result = sortColumn switch
+            {
+                "Name" => sortAscending ? result.OrderBy(c => c.Name) : result.OrderByDescending(c => c.Name),
+                "Description" => sortAscending ? result.OrderBy(c => c.Description) : result.OrderByDescending(c => c.Description),
+                _ => result
+            };
+
+            return result;
+        }
+    }
+
+    private void Sort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private string GetSortClass(string column)
+    {
+        if (sortColumn != column) return "none";
+        return sortAscending ? "active asc" : "active desc";
+    }
+
+    private void ClearFilters()
+    {
+        filterByName = "";
+        filterByDescription = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {
