@@ -53,9 +53,9 @@
             <button class="close-btn" @onclick="CloseRegistry">✕ Close</button>
             
             <div class="acr-tabs">
-                <button class="@(activeTab == "images" ? "active" : "")" @onclick='() => activeTab = "images"'>Images</button>
-                <button class="@(activeTab == "scopemaps" ? "active" : "")" @onclick='() => activeTab = "scopemaps"'>Scope Maps</button>
-                <button class="@(activeTab == "tokens" ? "active" : "")" @onclick='() => activeTab = "tokens"'>Tokens</button>
+                <button class="@(activeTab == "images" ? "active" : "")" @onclick="SelectImagesTab">Images</button>
+                <button class="@(activeTab == "scopemaps" ? "active" : "")" @onclick="SelectScopeMapsTab">Scope Maps</button>
+                <button class="@(activeTab == "tokens" ? "active" : "")" @onclick="SelectTokensTab">Tokens</button>
             </div>
 
             @if (activeTab == "images")
@@ -417,6 +417,33 @@
         selectedRegistry = registry;
         activeTab = "images";
         await LoadImages();
+    }
+
+    private async Task SelectImagesTab()
+    {
+        activeTab = "images";
+        if (images == null)
+        {
+            await LoadImages();
+        }
+    }
+
+    private async Task SelectScopeMapsTab()
+    {
+        activeTab = "scopemaps";
+        if (scopeMaps == null)
+        {
+            await LoadScopeMaps();
+        }
+    }
+
+    private async Task SelectTokensTab()
+    {
+        activeTab = "tokens";
+        if (tokens == null)
+        {
+            await LoadTokens();
+        }
     }
 
     private void CloseRegistry()
