@@ -509,8 +509,9 @@ public class ContainerRegistryService : IContainerRegistryService
                          $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
                          $"/registries/{registry.Name}/tokens/{request.Name}?api-version=2023-07-01";
         
-        const int maxProvisionRetries = 10;
-        const int provisionDelayMs = 3000;
+        const int maxProvisionRetries = 15;
+        const int provisionDelayMs = 2000;
+        bool tokenProvisioned = false;
         
         for (int attempt = 1; attempt <= maxProvisionRetries; attempt++)
         {
@@ -537,18 +538,36 @@ public class ContainerRegistryService : IContainerRegistryService
                     
                     if (provisioningState == "Succeeded")
                     {
+                        tokenProvisioned = true;
                         break;
                     }
+                    else if (provisioningState == "Failed")
+                    {
+                        _logger.LogError("Token {Name} provisioning failed", request.Name);
+                        throw new InvalidOperationException($"Token provisioning failed for {request.Name}");
+                    }
                 }
+            }
+            else
+            {
+                _logger.LogWarning("Failed to get token status: {StatusCode}", getResponse.StatusCode);
             }
             
             if (attempt < maxProvisionRetries)
             {
-                _logger.LogWarning("Token {Name} not ready yet (attempt {Attempt}/{MaxRetries}), waiting {Delay}ms...", 
+                _logger.LogWarning("Token {Name} not yet provisioned (attempt {Attempt}/{MaxRetries}), waiting {Delay}ms...", 
                     request.Name, attempt, maxProvisionRetries, provisionDelayMs);
                 await Task.Delay(provisionDelayMs);
             }
         }
+        
+        if (!tokenProvisioned)
+        {
+            _logger.LogError("Token {Name} did not become provisioned after {MaxRetries} attempts", request.Name, maxProvisionRetries);
+            throw new InvalidOperationException($"Token {request.Name} did not become provisioned in time");
+        }
+        
+        _logger.LogInformation("Token {Name} is fully provisioned, generating credentials...", request.Name);
 
         // Generate password for the token
         var passwordUrl = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
