@@ -501,9 +501,56 @@ public class ContainerRegistryService : IContainerRegistryService
         }
 
         var content = await response.Content.ReadAsStringAsync();
+        _logger.LogDebug("Token creation response: {Content}", content);
         var azureResponse = JsonSerializer.Deserialize<AzureTokenResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-        // Generate password for the token - with retry logic since token may take time to provision
+        // Wait for token to be fully provisioned by polling its GET endpoint
+        var tokenGetUrl = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
+                         $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
+                         $"/registries/{registry.Name}/tokens/{request.Name}?api-version=2023-07-01";
+        
+        const int maxProvisionRetries = 10;
+        const int provisionDelayMs = 3000;
+        
+        for (int attempt = 1; attempt <= maxProvisionRetries; attempt++)
+        {
+            _logger.LogInformation("Checking token {Name} provisioning status (attempt {Attempt}/{MaxRetries})", 
+                request.Name, attempt, maxProvisionRetries);
+                
+            var getRequest = new HttpRequestMessage(HttpMethod.Get, tokenGetUrl);
+            getRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            
+            var getResponse = await _httpClient.SendAsync(getRequest);
+            
+            if (getResponse.IsSuccessStatusCode)
+            {
+                var tokenContent = await getResponse.Content.ReadAsStringAsync();
+                _logger.LogDebug("Token status response: {Content}", tokenContent);
+                
+                // Check if token has a provisioningState of Succeeded
+                using var doc = JsonDocument.Parse(tokenContent);
+                if (doc.RootElement.TryGetProperty("properties", out var props) &&
+                    props.TryGetProperty("provisioningState", out var state))
+                {
+                    var provisioningState = state.GetString();
+                    _logger.LogInformation("Token {Name} provisioning state: {State}", request.Name, provisioningState);
+                    
+                    if (provisioningState == "Succeeded")
+                    {
+                        break;
+                    }
+                }
+            }
+            
+            if (attempt < maxProvisionRetries)
+            {
+                _logger.LogWarning("Token {Name} not ready yet (attempt {Attempt}/{MaxRetries}), waiting {Delay}ms...", 
+                    request.Name, attempt, maxProvisionRetries, provisionDelayMs);
+                await Task.Delay(provisionDelayMs);
+            }
+        }
+
+        // Generate password for the token
         var passwordUrl = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
                          $"/resourceGroups/{registry.ResourceGroup}/providers/Microsoft.ContainerRegistry" +
                          $"/registries/{registry.Name}/tokens/{request.Name}/generateCredentials?api-version=2023-07-01";

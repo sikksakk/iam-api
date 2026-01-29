@@ -239,7 +239,7 @@ public class CosmosDbDataStore : IDataStore
 
     public IEnumerable<Job> GetAllJobs()
     {
-        _logger.LogInformation("Querying Cosmos DB for all jobs...");
+        _logger.LogDebug("Querying Cosmos DB for all jobs...");
         
         var query = new QueryDefinition("SELECT * FROM c ORDER BY c.createdAt DESC");
         var iterator = _jobsContainer.GetItemQueryIterator<Job>(query);
@@ -252,7 +252,7 @@ public class CosmosDbDataStore : IDataStore
             jobs.AddRange(response);
         }
 
-        _logger.LogInformation("Retrieved {Count} total jobs from Cosmos DB. Status breakdown: {StatusBreakdown}", 
+        _logger.LogDebug("Retrieved {Count} total jobs from Cosmos DB. Status breakdown: {StatusBreakdown}", 
             jobs.Count,
             string.Join(", ", jobs.GroupBy(j => j.Status).Select(g => $"{g.Key}={g.Count()}")));
         
@@ -261,7 +261,7 @@ public class CosmosDbDataStore : IDataStore
 
     public IEnumerable<Job> GetPendingJobs()
     {
-        _logger.LogInformation("Querying Cosmos DB for pending jobs...");
+        _logger.LogDebug("Querying Cosmos DB for pending jobs...");
         
         // Try both string and integer representations of the enum
         var query = new QueryDefinition(
