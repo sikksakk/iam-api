@@ -5,11 +5,17 @@
     [Parameter]
     public EventCallback<string> CronExpressionChanged { get; set; }
 
-    private bool[] selectedDays = new bool[7]; // Mon-Sun
+    private bool[] selectedDays = new bool[7]; // Mon-Sun (UI order)
     private int hour = 0;
     private int minute = 0;
     private string cronPreview = "";
     private readonly string[] dayNames = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+    
+    // NCrontab uses: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+    // UI index:      0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+    // Mapping: UI index -> cron value
+    private static readonly int[] UiToCron = new[] { 1, 2, 3, 4, 5, 6, 0 }; // Mon=1, Tue=2, ... Sat=6, Sun=0
+    private static readonly int[] CronToUi = new[] { 6, 0, 1, 2, 3, 4, 5 }; // Cron 0(Sun)->UI 6, Cron 1(Mon)->UI 0, etc.
 
     protected override void OnInitialized()
     {
@@ -32,9 +38,9 @@
                 var days = parts[4].Split(',');
                 foreach (var day in days)
                 {
-                    if (int.TryParse(day, out int dayNum) && dayNum >= 1 && dayNum <= 7)
+                    if (int.TryParse(day, out int cronDay) && cronDay >= 0 && cronDay <= 6)
                     {
-                        selectedDays[dayNum - 1] = true;
+                        selectedDays[CronToUi[cronDay]] = true;
                     }
                 }
             }
@@ -67,12 +73,12 @@
 
     private async Task UpdateCronExpression()
     {
-        var dayIndices = selectedDays
-            .Select((selected, index) => selected ? (index + 1).ToString() : null)
+        var cronDays = selectedDays
+            .Select((selected, uiIndex) => selected ? UiToCron[uiIndex].ToString() : null)
             .Where(d => d != null)
             .ToList();
 
-        var dayPart = dayIndices.Any() ? string.Join(",", dayIndices) : "*";
+        var dayPart = cronDays.Any() ? string.Join(",", cronDays) : "*";
         var cron = $"{minute} {hour} * * {dayPart}";
         
         cronPreview = BuildHumanReadable();
