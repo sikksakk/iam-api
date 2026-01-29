@@ -300,10 +300,19 @@ public class ContainerRegistryService : IContainerRegistryService
         httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
         var response = await _httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to create scope map {Name}: {StatusCode} - {Error}", request.Name, response.StatusCode, errorContent);
+            throw new InvalidOperationException($"Failed to create scope map: {response.StatusCode} - {errorContent}");
+        }
 
         var content = await response.Content.ReadAsStringAsync();
-        var azureResponse = JsonSerializer.Deserialize<AzureScopeMapResponse>(content);
+        _logger.LogDebug("Scope map creation response: {Content}", content);
+        var azureResponse = JsonSerializer.Deserialize<AzureScopeMapResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        
+        _logger.LogInformation("Azure returned scope map ResourceId: {ResourceId}", azureResponse?.Id ?? "(null)");
 
         var scopeMap = new AcrScopeMap
         {
@@ -317,7 +326,7 @@ public class ContainerRegistryService : IContainerRegistryService
         };
 
         _dataStore.AddScopeMap(scopeMap);
-        _logger.LogInformation("Created scope map {Name} with ID {Id}", scopeMap.Name, scopeMap.Id);
+        _logger.LogInformation("Created scope map {Name} with local ID {Id} and ResourceId {ResourceId}", scopeMap.Name, scopeMap.Id, scopeMap.ResourceId);
 
         return scopeMap;
     }
@@ -455,7 +464,8 @@ public class ContainerRegistryService : IContainerRegistryService
             throw new InvalidOperationException($"Scope map {request.ScopeMapId} does not belong to registry {registryId}");
         }
 
-        _logger.LogInformation("Creating token {Name} for registry {Registry}", request.Name, registry.Name);
+        _logger.LogInformation("Creating token {Name} for registry {Registry} with scopeMapResourceId {ScopeMapResourceId}", 
+            request.Name, registry.Name, scopeMap.ResourceId);
 
         // Create token via Azure Management API
         var url = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
@@ -470,19 +480,28 @@ public class ContainerRegistryService : IContainerRegistryService
                 status = "enabled"
             }
         };
+        
+        var payloadJson = JsonSerializer.Serialize(payload);
+        _logger.LogDebug("Token creation payload: {Payload}", payloadJson);
 
         var accessToken = await GetAccessTokenAsync();
         var httpRequest = new HttpRequestMessage(HttpMethod.Put, url)
         {
-            Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            Content = new StringContent(payloadJson, Encoding.UTF8, "application/json")
         };
         httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
         var response = await _httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to create token {Name}: {StatusCode} - {Error}", request.Name, response.StatusCode, errorContent);
+            throw new InvalidOperationException($"Failed to create token: {response.StatusCode} - {errorContent}");
+        }
 
         var content = await response.Content.ReadAsStringAsync();
-        var azureResponse = JsonSerializer.Deserialize<AzureTokenResponse>(content);
+        var azureResponse = JsonSerializer.Deserialize<AzureTokenResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         // Generate password for the token
         var passwordUrl = $"https://management.azure.com/subscriptions/{registry.SubscriptionId}" +
@@ -502,10 +521,16 @@ public class ContainerRegistryService : IContainerRegistryService
         passwordRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
         var passwordResponse = await _httpClient.SendAsync(passwordRequest);
-        passwordResponse.EnsureSuccessStatusCode();
+        
+        if (!passwordResponse.IsSuccessStatusCode)
+        {
+            var errorContent = await passwordResponse.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to generate credentials for token {Name}: {StatusCode} - {Error}", request.Name, passwordResponse.StatusCode, errorContent);
+            throw new InvalidOperationException($"Failed to generate token credentials: {passwordResponse.StatusCode} - {errorContent}");
+        }
 
         var passwordContent = await passwordResponse.Content.ReadAsStringAsync();
-        var passwordResult = JsonSerializer.Deserialize<AzureTokenCredentialsResponse>(passwordContent);
+        var passwordResult = JsonSerializer.Deserialize<AzureTokenCredentialsResponse>(passwordContent, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         var token = new AcrToken
         {
