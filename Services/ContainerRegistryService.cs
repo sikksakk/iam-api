@@ -651,7 +651,10 @@ public class ContainerRegistryService : IContainerRegistryService
 
     private class AcrTokenResponse
     {
+        [System.Text.Json.Serialization.JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
     }
 
