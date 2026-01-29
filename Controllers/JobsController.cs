@@ -159,8 +159,15 @@ public class JobsController : ControllerBase
     /// Update job status (for orchestrator)
     /// </summary>
     [HttpPatch("{id}/status")]
-    public ActionResult<Job> UpdateJobStatus(Guid id, [FromBody] JobStatus status)
+    public async Task<ActionResult<Job>> UpdateJobStatus(Guid id, [FromBody] JobStatus status)
     {
+        // Get the job first to check for ACR resources before updating status
+        var existingJob = _dataStore.GetJob(id);
+        if (existingJob == null)
+        {
+            return NotFound();
+        }
+        
         var job = _dataStore.UpdateJobStatus(id, status);
         if (job == null)
         {
@@ -168,7 +175,46 @@ public class JobsController : ControllerBase
         }
 
         _logger.LogInformation("Updated job {JobId} status to {Status}", id, status);
+
+        // Clean up ACR token and scope map when job completes or fails
+        if (status == JobStatus.Completed || status == JobStatus.Failed)
+        {
+            await CleanupAcrResourcesAsync(job);
+        }
+
         return Ok(job);
+    }
+
+    /// <summary>
+    /// Clean up ACR scope map and token for a job
+    /// </summary>
+    private async Task CleanupAcrResourcesAsync(Job job)
+    {
+        if (job.AcrTokenId.HasValue)
+        {
+            try
+            {
+                _logger.LogInformation("Cleaning up ACR token {TokenId} for completed job {JobId}", job.AcrTokenId, job.Id);
+                await _registryService.DeleteTokenAsync(job.AcrTokenId.Value);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cleanup ACR token {TokenId} for job {JobId}", job.AcrTokenId, job.Id);
+            }
+        }
+
+        if (job.AcrScopeMapId.HasValue)
+        {
+            try
+            {
+                _logger.LogInformation("Cleaning up ACR scope map {ScopeMapId} for completed job {JobId}", job.AcrScopeMapId, job.Id);
+                await _registryService.DeleteScopeMapAsync(job.AcrScopeMapId.Value);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cleanup ACR scope map {ScopeMapId} for job {JobId}", job.AcrScopeMapId, job.Id);
+            }
+        }
     }
 
     /// <summary>
@@ -237,31 +283,7 @@ public class JobsController : ControllerBase
         }
 
         // Clean up ACR token and scope map if they exist
-        if (job.AcrTokenId.HasValue)
-        {
-            try
-            {
-                _logger.LogInformation("Deleting ACR token {TokenId} for job {JobId}", job.AcrTokenId, id);
-                await _registryService.DeleteTokenAsync(job.AcrTokenId.Value);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete ACR token {TokenId} for job {JobId}", job.AcrTokenId, id);
-            }
-        }
-
-        if (job.AcrScopeMapId.HasValue)
-        {
-            try
-            {
-                _logger.LogInformation("Deleting ACR scope map {ScopeMapId} for job {JobId}", job.AcrScopeMapId, id);
-                await _registryService.DeleteScopeMapAsync(job.AcrScopeMapId.Value);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete ACR scope map {ScopeMapId} for job {JobId}", job.AcrScopeMapId, id);
-            }
-        }
+        await CleanupAcrResourcesAsync(job);
 
         var deleted = _dataStore.DeleteJob(id);
         if (!deleted)
