@@ -115,6 +115,7 @@
                         <td>@job.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
                             <button class="view-btn" @onclick="() => ViewLogs(job)" title="View Logs">📜 Logs</button>
+                            <button class="edit-btn" @onclick="() => EditJob(job)" title="Edit Job">✏️ Edit</button>
                             <button class="copy-btn" @onclick="() => CopyJob(job)">📋 Copy</button>
                             <button class="retry-btn" @onclick="() => RetryJob(job)">🔄 Retry</button>
                             <button class="delete-btn" @onclick="() => DeleteJob(job.Id)">🗑️ Delete</button>
@@ -131,7 +132,7 @@
     <div class="modal-overlay" @onclick="CloseModal">
         <div class="modal-content modal-large" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>Create Job</h3>
+                <h3>@(isEditMode ? "Edit Job" : "Create Job")</h3>
                 <button class="close-btn" @onclick="CloseModal">✖</button>
             </div>
             <EditForm Model="@jobForm" OnValidSubmit="SubmitJobForm">
@@ -256,7 +257,7 @@
                     else
                     {
                         <button type="button" class="cancel-btn" @onclick="CloseModal">Cancel</button>
-                        <button type="submit" class="submit-btn">Create Job</button>
+                        <button type="submit" class="submit-btn">@(isEditMode ? "Save Changes" : "Create Job")</button>
                     }
                 </div>
             </EditForm>
@@ -362,6 +363,8 @@
     private bool isSubmitting = false;
     private string submittingStatus = "";
     private bool showModal = false;
+    private bool isEditMode = false;
+    private Guid? editingJobId = null;
     private bool useRecurring = false;
     private DateTime scheduledForInput = DateTime.Now.AddHours(1);
     private string selectedRegistryId = "";
@@ -601,6 +604,8 @@
     private void OpenCreateModal()
     {
         jobForm = new() { Parameters = new() };
+        isEditMode = false;
+        editingJobId = null;
         useRecurring = false;
         scheduledForInput = DateTime.Now.AddHours(1);
         selectedRegistryId = "";
@@ -615,6 +620,8 @@
     private void CloseModal()
     {
         showModal = false;
+        isEditMode = false;
+        editingJobId = null;
         jobForm = new() { Parameters = new() };
         selectedRegistryId = "";
         selectedRegistry = null;
@@ -636,7 +643,7 @@
     private async Task SubmitJobForm()
     {
         isSubmitting = true;
-        submittingStatus = "Creating job...";
+        submittingStatus = isEditMode ? "Saving changes..." : "Creating job...";
         StateHasChanged();
         
         try
@@ -661,14 +668,22 @@
                 await Task.Delay(100); // Allow UI to update
             }
 
-            await Api.CreateJob(jobForm);
-            await Toast.ShowSuccess("Job created successfully!");
+            if (isEditMode && editingJobId.HasValue)
+            {
+                await Api.UpdateJob(editingJobId.Value, jobForm);
+                await Toast.ShowSuccess("Job updated successfully!");
+            }
+            else
+            {
+                await Api.CreateJob(jobForm);
+                await Toast.ShowSuccess("Job created successfully!");
+            }
             CloseModal();
             await LoadJobs();
         }
         catch (Exception ex)
         {
-            await Toast.ShowError($"Failed to create job: {ex.Message}");
+            await Toast.ShowError($"Failed to {(isEditMode ? "update" : "create")} job: {ex.Message}");
         }
         finally
         {
@@ -690,8 +705,51 @@
         }
     }
 
-    private void CopyJob(Job job)
+    private async Task CopyJob(Job job)
     {
+        // Find the registry if the job has one
+        if (job.RegistryServer != null)
+        {
+            var registry = registries.FirstOrDefault(r => r.Server == job.RegistryServer);
+            if (registry != null)
+            {
+                selectedRegistryId = registry.Id.ToString();
+                selectedRegistry = registry;
+                
+                // Load images if it's an ACR
+                if (registry.Type == "AzureContainerRegistry")
+                {
+                    await LoadRegistryImages();
+                    
+                    // Extract repository from container image (format: server/repository:tag)
+                    if (!string.IsNullOrEmpty(job.ContainerImage) && job.ContainerImage.Contains('/'))
+                    {
+                        var imageWithoutServer = job.ContainerImage.Substring(job.ContainerImage.IndexOf('/') + 1);
+                        var colonIndex = imageWithoutServer.LastIndexOf(':');
+                        if (colonIndex > 0)
+                        {
+                            selectedImageRepository = imageWithoutServer.Substring(0, colonIndex);
+                            selectedImageTag = imageWithoutServer.Substring(colonIndex + 1);
+                            
+                            // Load tags for the selected repository
+                            if (registryImages != null)
+                            {
+                                var image = registryImages.Images.FirstOrDefault(i => i.Repository == selectedImageRepository);
+                                if (image != null)
+                                {
+                                    selectedImageTags = image.Tags;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            selectedImageRepository = imageWithoutServer;
+                        }
+                    }
+                }
+            }
+        }
+        
         jobForm = new CreateJobRequest
         {
             Name = $"{job.Name} (Copy)",
@@ -701,6 +759,8 @@
             RegistryServer = job.RegistryServer,
             RegistryUsername = job.RegistryUsername,
             RegistryPassword = job.RegistryPassword,
+            RegistryId = selectedRegistry?.Id,
+            ImageRepository = selectedImageRepository,
             JobType = job.JobType,
             IsWhatIf = job.IsWhatIf,
             Schedule = job.Schedule,
@@ -708,6 +768,87 @@
         };
         
         useRecurring = !string.IsNullOrEmpty(job.Schedule);
+        if (!useRecurring && job.ScheduledFor.HasValue)
+        {
+            scheduledForInput = job.ScheduledFor.Value;
+        }
+        showModal = true;
+    }
+
+    private async Task EditJob(Job job)
+    {
+        isEditMode = true;
+        editingJobId = job.Id;
+        
+        // Find the registry if the job has one
+        if (job.RegistryServer != null)
+        {
+            var registry = registries.FirstOrDefault(r => r.Server == job.RegistryServer);
+            if (registry != null)
+            {
+                selectedRegistryId = registry.Id.ToString();
+                selectedRegistry = registry;
+                
+                // Load images if it's an ACR
+                if (registry.Type == "AzureContainerRegistry")
+                {
+                    await LoadRegistryImages();
+                    
+                    // Extract repository from container image (format: server/repository:tag)
+                    if (!string.IsNullOrEmpty(job.ContainerImage) && job.ContainerImage.Contains('/'))
+                    {
+                        var imageWithoutServer = job.ContainerImage.Substring(job.ContainerImage.IndexOf('/') + 1);
+                        var colonIndex = imageWithoutServer.LastIndexOf(':');
+                        if (colonIndex > 0)
+                        {
+                            selectedImageRepository = imageWithoutServer.Substring(0, colonIndex);
+                            selectedImageTag = imageWithoutServer.Substring(colonIndex + 1);
+                            
+                            // Load tags for the selected repository
+                            if (registryImages != null)
+                            {
+                                var image = registryImages.Images.FirstOrDefault(i => i.Repository == selectedImageRepository);
+                                if (image != null)
+                                {
+                                    selectedImageTags = image.Tags;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            selectedImageRepository = imageWithoutServer;
+                        }
+                    }
+                }
+            }
+        }
+        
+        jobForm = new CreateJobRequest
+        {
+            Name = job.Name,
+            Customer = job.Customer,
+            ScriptPath = job.ScriptPath,
+            ContainerImage = job.ContainerImage,
+            RegistryServer = job.RegistryServer,
+            RegistryUsername = job.RegistryUsername,
+            RegistryPassword = job.RegistryPassword,
+            RegistryId = selectedRegistry?.Id,
+            ImageRepository = selectedImageRepository,
+            JobType = job.JobType,
+            IsWhatIf = job.IsWhatIf,
+            Schedule = job.Schedule,
+            Parameters = new Dictionary<string, string>(job.Parameters)
+        };
+        
+        useRecurring = !string.IsNullOrEmpty(job.Schedule);
+        if (!useRecurring && job.ScheduledFor.HasValue)
+        {
+            scheduledForInput = job.ScheduledFor.Value;
+        }
+        else
+        {
+            scheduledForInput = DateTime.Now.AddHours(1);
+        }
         showModal = true;
     }
 

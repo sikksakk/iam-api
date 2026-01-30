@@ -122,6 +122,13 @@ public class ApiService
         return await HandleResponse<Job>(response);
     }
 
+    public async Task<Job?> UpdateJob(Guid id, CreateJobRequest request)
+    {
+        await SetAuthHeader();
+        var response = await _http.PutAsJsonAsync($"/api/jobs/{id}", request);
+        return await HandleResponse<Job>(response);
+    }
+
     public async Task DeleteJob(Guid id)
     {
         await SetAuthHeader();

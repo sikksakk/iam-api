@@ -64,6 +64,7 @@
 
 @code {
     private string activeTab = "orchestrators";
+    private string previousTab = "orchestrators";
     private string username = "Loading...";
     private string buildVersion = "1.0.0";
 
@@ -108,10 +109,11 @@
     {
         if (activeTab == "console")
         {
-            activeTab = "orchestrators";
+            activeTab = previousTab;
         }
         else
         {
+            previousTab = activeTab;
             activeTab = "console";
         }
         StateHasChanged();
