@@ -18,7 +18,8 @@ public class InMemoryDataStore : IDataStore
     {
         job.Id = Guid.NewGuid();
         job.CreatedAt = DateTime.UtcNow;
-        job.Status = JobStatus.Pending;
+        // Scheduled jobs wait for their schedule, one-off jobs are immediately pending
+        job.Status = job.JobType == JobType.Scheduled ? JobStatus.Scheduled : JobStatus.Pending;
         _jobs[job.Id] = job;
         return job;
     }
@@ -51,9 +52,18 @@ public class InMemoryDataStore : IDataStore
             {
                 job.StartedAt = DateTime.UtcNow;
             }
-            else if ((status == JobStatus.Completed || status == JobStatus.Failed) && !job.CompletedAt.HasValue)
+            else if (status == JobStatus.Completed || status == JobStatus.Failed)
             {
                 job.CompletedAt = DateTime.UtcNow;
+                
+                // Scheduled jobs should reset to Scheduled status after completion
+                // so they can be triggered again by the scheduler
+                if (job.JobType == JobType.Scheduled && !string.IsNullOrEmpty(job.Schedule))
+                {
+                    job.Status = JobStatus.Scheduled;
+                    job.StartedAt = null;
+                    job.CompletedAt = null;
+                }
             }
             
             return job;

@@ -63,6 +63,7 @@
                         <select class="filter-input" @bind="filterByStatus">
                             <option value="">All</option>
                             <option value="Pending">Pending</option>
+                            <option value="Scheduled">Scheduled</option>
                             <option value="Running">Running</option>
                             <option value="Completed">Completed</option>
                             <option value="Failed">Failed</option>
@@ -81,6 +82,7 @@
                     var statusClass = job.Status switch
                     {
                         "Pending" => "status-pending",
+                        "Scheduled" => "status-scheduled",
                         "Running" => "status-running",
                         "Completed" => "status-completed",
                         "Failed" => "status-failed",
@@ -89,6 +91,7 @@
                     var statusText = job.Status switch
                     {
                         "Pending" => "⏳ Pending",
+                        "Scheduled" => "📅 Scheduled",
                         "Running" => "▶️ Running",
                         "Completed" => "✓ Completed",
                         "Failed" => "✗ Failed",

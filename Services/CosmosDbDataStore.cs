@@ -205,7 +205,8 @@ public class CosmosDbDataStore : IDataStore
     {
         job.Id = Guid.NewGuid();
         job.CreatedAt = DateTime.UtcNow;
-        job.Status = JobStatus.Pending;
+        // Scheduled jobs wait for their schedule, one-off jobs are immediately pending
+        job.Status = job.JobType == JobType.Scheduled ? JobStatus.Scheduled : JobStatus.Pending;
         
         _logger.LogInformation("Creating job {JobId} with status {Status} ({StatusInt})", 
             job.Id, job.Status, (int)job.Status);
@@ -299,9 +300,18 @@ public class CosmosDbDataStore : IDataStore
             {
                 job.StartedAt = DateTime.UtcNow;
             }
-            else if ((status == JobStatus.Completed || status == JobStatus.Failed) && !job.CompletedAt.HasValue)
+            else if (status == JobStatus.Completed || status == JobStatus.Failed)
             {
                 job.CompletedAt = DateTime.UtcNow;
+                
+                // Scheduled jobs should reset to Scheduled status after completion
+                // so they can be triggered again by the scheduler
+                if (job.JobType == JobType.Scheduled && !string.IsNullOrEmpty(job.Schedule))
+                {
+                    job.Status = JobStatus.Scheduled;
+                    job.StartedAt = null;
+                    job.CompletedAt = null;
+                }
             }
 
             var response = _jobsContainer.ReplaceItemAsync(job, job.Id.ToString(), new PartitionKey(job.Id.ToString()))

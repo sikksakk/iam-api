@@ -57,8 +57,10 @@ public class JobSchedulingWorker : BackgroundService
         var dataStore = scope.ServiceProvider.GetRequiredService<IDataStore>();
 
         var allJobs = dataStore.GetAllJobs();
+        // Only check jobs that are in Scheduled status (waiting for their time)
         var scheduledJobs = allJobs.Where(j => 
             j.JobType == JobType.Scheduled && 
+            j.Status == JobStatus.Scheduled &&
             !string.IsNullOrEmpty(j.Schedule) &&
             !j.IsPaused).ToList();
 

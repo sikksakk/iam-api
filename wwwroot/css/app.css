@@ -272,6 +272,11 @@ td {
     color: #92400e;
 }
 
+.status-scheduled {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
 .status-running {
     background: #dbeafe;
     color: #1e40af;
