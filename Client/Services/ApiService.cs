@@ -129,6 +129,13 @@ public class ApiService
         return await HandleResponse<Job>(response);
     }
 
+    public async Task<Job?> TogglePauseJob(Guid id, bool isPaused)
+    {
+        await SetAuthHeader();
+        var response = await _http.PatchAsync($"/api/jobs/{id}/pause", JsonContent.Create(isPaused));
+        return await HandleResponse<Job>(response);
+    }
+
     public async Task DeleteJob(Guid id)
     {
         await SetAuthHeader();

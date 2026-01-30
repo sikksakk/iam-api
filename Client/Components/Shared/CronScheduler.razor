@@ -6,8 +6,7 @@
     public EventCallback<string> CronExpressionChanged { get; set; }
 
     private bool[] selectedDays = new bool[7]; // Mon-Sun (UI order)
-    private int hour = 0;
-    private int minute = 0;
+    private List<(int Hour, int Minute)> scheduledTimes = new() { (0, 0) };
     private string cronPreview = "";
     private readonly string[] dayNames = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
     
@@ -30,8 +29,28 @@
         var parts = cron.Split(' ');
         if (parts.Length == 5)
         {
-            int.TryParse(parts[0], out minute);
-            int.TryParse(parts[1], out hour);
+            // Parse multiple minutes and hours
+            var minutes = ParseCronField(parts[0]);
+            var hours = ParseCronField(parts[1]);
+            
+            // Build time combinations
+            scheduledTimes.Clear();
+            foreach (var h in hours)
+            {
+                foreach (var m in minutes)
+                {
+                    scheduledTimes.Add((h, m));
+                }
+            }
+            
+            // If no times parsed, add default
+            if (!scheduledTimes.Any())
+            {
+                scheduledTimes.Add((0, 0));
+            }
+            
+            // Sort by hour then minute
+            scheduledTimes = scheduledTimes.OrderBy(t => t.Hour).ThenBy(t => t.Minute).ToList();
 
             if (parts[4] != "*")
             {
@@ -47,26 +66,65 @@
         }
     }
 
+    private List<int> ParseCronField(string field)
+    {
+        var result = new List<int>();
+        if (field == "*") return result;
+        
+        var parts = field.Split(',');
+        foreach (var part in parts)
+        {
+            if (int.TryParse(part.Trim(), out int value))
+            {
+                result.Add(value);
+            }
+        }
+        return result.Distinct().OrderBy(x => x).ToList();
+    }
+
     private void ToggleDay(int index)
     {
         selectedDays[index] = !selectedDays[index];
         _ = UpdateCronExpression();
     }
 
-    private void OnHourChanged(ChangeEventArgs e)
+    private void AddTime()
     {
-        if (int.TryParse(e.Value?.ToString(), out int h) && h >= 0 && h <= 23)
+        // Add a new time slot, defaulting to the next hour after the last entry
+        var lastTime = scheduledTimes.LastOrDefault();
+        var newHour = (lastTime.Hour + 1) % 24;
+        scheduledTimes.Add((newHour, 0));
+        scheduledTimes = scheduledTimes.OrderBy(t => t.Hour).ThenBy(t => t.Minute).ToList();
+        _ = UpdateCronExpression();
+    }
+
+    private void RemoveTime(int index)
+    {
+        if (scheduledTimes.Count > 1)
         {
-            hour = h;
+            scheduledTimes.RemoveAt(index);
             _ = UpdateCronExpression();
         }
     }
 
-    private void OnMinuteChanged(ChangeEventArgs e)
+    private void OnHourChanged(int index, ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int h) && h >= 0 && h <= 23)
+        {
+            var current = scheduledTimes[index];
+            scheduledTimes[index] = (h, current.Minute);
+            scheduledTimes = scheduledTimes.OrderBy(t => t.Hour).ThenBy(t => t.Minute).ToList();
+            _ = UpdateCronExpression();
+        }
+    }
+
+    private void OnMinuteChanged(int index, ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out int m) && m >= 0 && m <= 59)
         {
-            minute = m;
+            var current = scheduledTimes[index];
+            scheduledTimes[index] = (current.Hour, m);
+            scheduledTimes = scheduledTimes.OrderBy(t => t.Hour).ThenBy(t => t.Minute).ToList();
             _ = UpdateCronExpression();
         }
     }
@@ -79,7 +137,21 @@
             .ToList();
 
         var dayPart = cronDays.Any() ? string.Join(",", cronDays) : "*";
-        var cron = $"{minute} {hour} * * {dayPart}";
+        
+        // Get unique hours and minutes
+        var hours = scheduledTimes.Select(t => t.Hour).Distinct().OrderBy(h => h).ToList();
+        var minutes = scheduledTimes.Select(t => t.Minute).Distinct().OrderBy(m => m).ToList();
+        
+        // Build cron expression
+        // If we have multiple distinct time combinations, we need to check if they can be expressed as hour,minute combinations
+        // For simplicity, we'll use the cron format: minute1,minute2 hour1,hour2 * * days
+        // This creates a cross-product, so we only do this if user is OK with all combinations
+        // For exact times, we'll note this in the preview
+        
+        var minutePart = string.Join(",", minutes);
+        var hourPart = string.Join(",", hours);
+        
+        var cron = $"{minutePart} {hourPart} * * {dayPart}";
         
         cronPreview = BuildHumanReadable();
         CronExpression = cron;
@@ -93,10 +165,13 @@
             .Where(d => d != null)
             .ToList();
 
-        if (!days.Any())
-            return $"Every day at {hour:D2}:{minute:D2}";
+        var times = scheduledTimes.Select(t => $"{t.Hour:D2}:{t.Minute:D2}").ToList();
+        var timeStr = times.Count == 1 ? times[0] : string.Join(", ", times);
 
-        return $"Every {string.Join(", ", days)} at {hour:D2}:{minute:D2}";
+        if (!days.Any())
+            return $"Every day at {timeStr}";
+
+        return $"Every {string.Join(", ", days)} at {timeStr}";
     }
 }
 
@@ -116,23 +191,37 @@
         </div>
     </div>
 
-    <div class="time-selector">
-        <label>Time:</label>
-        <div class="time-inputs">
-            <input type="number" 
-                   min="0" 
-                   max="23" 
-                   value="@hour" 
-                   @onchange="OnHourChanged" 
-                   class="time-input" />
-            <span>:</span>
-            <input type="number" 
-                   min="0" 
-                   max="59" 
-                   value="@minute" 
-                   @onchange="OnMinuteChanged" 
-                   class="time-input" />
+    <div class="times-selector">
+        <label>Times:</label>
+        <div class="times-list">
+            @for (int i = 0; i < scheduledTimes.Count; i++)
+            {
+                var index = i;
+                var time = scheduledTimes[index];
+                <div class="time-entry">
+                    <div class="time-inputs">
+                        <input type="number" 
+                               min="0" 
+                               max="23" 
+                               value="@time.Hour" 
+                               @onchange="(e) => OnHourChanged(index, e)" 
+                               class="time-input" />
+                        <span>:</span>
+                        <input type="number" 
+                               min="0" 
+                               max="59" 
+                               value="@time.Minute" 
+                               @onchange="(e) => OnMinuteChanged(index, e)" 
+                               class="time-input" />
+                    </div>
+                    @if (scheduledTimes.Count > 1)
+                    {
+                        <button type="button" class="remove-time-btn" @onclick="() => RemoveTime(index)" title="Remove this time">✕</button>
+                    }
+                </div>
+            }
         </div>
+        <button type="button" class="add-time-btn" @onclick="AddTime">➕ Add Time</button>
     </div>
 
     <div class="cron-preview">

@@ -117,6 +117,10 @@
                             <button class="view-btn" @onclick="() => ViewLogs(job)" title="View Logs">📜 Logs</button>
                             <button class="edit-btn" @onclick="() => EditJob(job)" title="Edit Job">✏️ Edit</button>
                             <button class="copy-btn" @onclick="() => CopyJob(job)">📋 Copy</button>
+                            @if (!string.IsNullOrEmpty(job.Schedule))
+                            {
+                                <button class="@(job.IsPaused ? "resume-btn" : "pause-btn")" @onclick="() => TogglePause(job)" title="@(job.IsPaused ? "Resume" : "Pause")">@(job.IsPaused ? "▶️ Resume" : "⏸️ Pause")</button>
+                            }
                             <button class="retry-btn" @onclick="() => RetryJob(job)">🔄 Retry</button>
                             <button class="delete-btn" @onclick="() => DeleteJob(job.Id)">🗑️ Delete</button>
                         </td>
@@ -702,6 +706,21 @@
         catch (Exception ex)
         {
             await Toast.ShowError($"Failed to delete job: {ex.Message}");
+        }
+    }
+
+    private async Task TogglePause(Job job)
+    {
+        try
+        {
+            var newPausedState = !job.IsPaused;
+            await Api.TogglePauseJob(job.Id, newPausedState);
+            await Toast.ShowSuccess(newPausedState ? "Job paused" : "Job resumed");
+            await LoadJobs();
+        }
+        catch (Exception ex)
+        {
+            await Toast.ShowError($"Failed to toggle pause: {ex.Message}");
         }
     }
 
