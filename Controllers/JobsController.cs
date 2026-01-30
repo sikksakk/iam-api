@@ -235,8 +235,14 @@ public class JobsController : ControllerBase
         }
 
         job.IsPaused = isPaused;
+        var updatedJob = _dataStore.UpdateJob(job);
+        if (updatedJob == null)
+        {
+            return NotFound();
+        }
+        
         _logger.LogInformation("Job {JobId} pause state set to {IsPaused}", id, isPaused);
-        return Ok(job);
+        return Ok(updatedJob);
     }
 
     /// <summary>
