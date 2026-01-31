@@ -11,14 +11,16 @@ public sealed class CertificateService : ICertificateService
 {
     private readonly ILogger<CertificateService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IDataStore _dataStore;
     private readonly Dictionary<string, CustomerCertificate> _certificates;
     private readonly SemaphoreSlim _certificateLock = new(1, 1);
     private GraphServiceClient? _graphClient;
 
-    public CertificateService(ILogger<CertificateService> logger, IConfiguration configuration)
+    public CertificateService(ILogger<CertificateService> logger, IConfiguration configuration, IDataStore dataStore)
     {
         _logger = logger;
         _configuration = configuration;
+        _dataStore = dataStore;
         _certificates = new Dictionary<string, CustomerCertificate>();
     }
 
@@ -525,6 +527,89 @@ public sealed class CertificateService : ICertificateService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to cleanup expired certificates from Entra ID");
+            }
+        }
+        finally
+        {
+            _certificateLock.Release();
+        }
+    }
+
+    public async Task CleanupUnusedCertificatesAsync()
+    {
+        await _certificateLock.WaitAsync();
+        try
+        {
+            _logger.LogDebug("Starting cleanup of unused certificates");
+            
+            // Get all active jobs (running, pending, scheduled)
+            var activeJobs = _dataStore.GetAllJobs()
+                .Where(j => j.Status == JobStatus.Pending || 
+                           j.Status == JobStatus.Running || 
+                           j.Status == JobStatus.Scheduled)
+                .ToList();
+            
+            // Get customers that have active jobs
+            var customersWithActiveJobs = activeJobs
+                .Select(j => j.Customer)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            
+            _logger.LogDebug("Found {ActiveJobCount} active jobs for {CustomerCount} customers", 
+                activeJobs.Count, customersWithActiveJobs.Count);
+            
+            // Clean up in-memory certificates for customers without active jobs
+            var unusedInMemory = _certificates
+                .Where(kvp => !customersWithActiveJobs.Contains(kvp.Key))
+                .ToList();
+
+            foreach (var unused in unusedInMemory)
+            {
+                _logger.LogInformation("Cleaning up unused certificate for customer {Customer} (no active jobs)", 
+                    unused.Key);
+                await DeleteCertificateFromAzureAsync(unused.Value.KeyId);
+                _certificates.Remove(unused.Key);
+            }
+
+            if (unusedInMemory.Any())
+            {
+                _logger.LogInformation("Cleaned up {Count} unused in-memory certificates", unusedInMemory.Count);
+            }
+            
+            // Clean up unused certificates from Entra ID
+            try
+            {
+                var applicationObjectId = _configuration["EntraId:ApplicationObjectId"];
+                if (!string.IsNullOrEmpty(applicationObjectId))
+                {
+                    var graphClient = GetGraphClient();
+                    var application = await graphClient.Applications[applicationObjectId].GetAsync();
+                    
+                    if (application?.KeyCredentials != null)
+                    {
+                        // Get certificates where DisplayName matches a customer without active jobs
+                        var unusedFromAzure = application.KeyCredentials
+                            .Where(kc => !string.IsNullOrEmpty(kc.DisplayName) && 
+                                        !customersWithActiveJobs.Contains(kc.DisplayName))
+                            .ToList();
+                        
+                        foreach (var unusedCert in unusedFromAzure)
+                        {
+                            _logger.LogInformation("Removing unused certificate from Entra ID: {DisplayName} (no active jobs)", 
+                                unusedCert.DisplayName);
+                            await DeleteCertificateFromAzureAsync(unusedCert.KeyId?.ToString() ?? "");
+                        }
+                        
+                        if (unusedFromAzure.Any())
+                        {
+                            _logger.LogInformation("Cleaned up {Count} unused certificates from Entra ID", unusedFromAzure.Count);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cleanup unused certificates from Entra ID");
             }
         }
         finally

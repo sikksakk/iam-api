@@ -31,6 +31,7 @@ public class CertificateMaintenanceWorker : BackgroundService
 
                 _logger.LogDebug("Running certificate cleanup...");
                 await certificateService.CleanupExpiredCertificatesAsync();
+                await certificateService.CleanupUnusedCertificatesAsync();
             }
             catch (OperationCanceledException)
             {

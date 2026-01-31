@@ -46,13 +46,14 @@ public sealed class CertificatesController : ControllerBase
     }
 
     /// <summary>
-    /// Manually trigger certificate cleanup
+    /// Manually trigger certificate cleanup (expired and unused)
     /// </summary>
     [HttpPost("cleanup")]
     public async Task<ActionResult> CleanupExpiredCertificates()
     {
         await _certificateService.CleanupExpiredCertificatesAsync();
-        return Ok(new { message = "Cleanup completed" });
+        await _certificateService.CleanupUnusedCertificatesAsync();
+        return Ok(new { message = "Cleanup completed (expired and unused certificates removed)" });
     }
 
     /// <summary>

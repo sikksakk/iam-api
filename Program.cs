@@ -199,6 +199,7 @@ var logger = app.Services.GetRequiredService<ILogger<Program>>();
 var certificateService = app.Services.GetRequiredService<ICertificateService>();
 logger.LogInformation("Performing certificate cleanup on startup...");
 await certificateService.CleanupExpiredCertificatesAsync();
+await certificateService.CleanupUnusedCertificatesAsync();
 logger.LogInformation("Startup certificate cleanup completed");
 
 var enableSwagger = builder.Configuration.GetValue("Swagger:Enabled", builder.Environment.IsDevelopment());
