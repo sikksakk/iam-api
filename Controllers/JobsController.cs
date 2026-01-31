@@ -237,6 +237,12 @@ public sealed class JobsController : ControllerBase
 
         _logger.LogInformation("Updated job {JobId} status to {Status}", id, status);
 
+        // For scheduled jobs transitioning to Running, regenerate ACR credentials for this run
+        if (status == JobStatus.Running && job.JobType == JobType.Scheduled && job.RegistryId.HasValue)
+        {
+            await RegenerateAcrCredentialsIfNeededAsync(job);
+        }
+
         // Clean up orchestrator assignment and ACR resources when job completes or fails
         if (status == JobStatus.Completed || status == JobStatus.Failed)
         {
@@ -252,6 +258,77 @@ public sealed class JobsController : ControllerBase
         }
 
         return Ok(job);
+    }
+    
+    /// <summary>
+    /// Regenerate ACR credentials for a scheduled job run
+    /// </summary>
+    private async Task RegenerateAcrCredentialsIfNeededAsync(Job job)
+    {
+        if (!job.RegistryId.HasValue)
+            return;
+            
+        var registry = _dataStore.GetRegistry(job.RegistryId.Value);
+        if (registry == null || registry.Type != RegistryType.AzureContainerRegistry)
+            return;
+            
+        try
+        {
+            // Extract repository from container image
+            var imageRepository = ExtractRepositoryFromImage(job.ContainerImage, registry.Server);
+            
+            if (string.IsNullOrEmpty(imageRepository))
+            {
+                _logger.LogWarning("Could not extract repository from container image {Image} for scheduled job {JobId}",
+                    job.ContainerImage, job.Id);
+                return;
+            }
+            
+            _logger.LogInformation("Creating ACR scope map and token for scheduled job run {JobId} with repository {Repository}",
+                job.Id, imageRepository);
+
+            // Create a unique scope map name for this run
+            var scopeMapName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            
+            var scopeMapRequest = new CreateScopeMapRequest
+            {
+                Name = scopeMapName,
+                Description = $"Auto-created for scheduled run of job: {job.Name}",
+                Repositories = new List<string> { imageRepository },
+                Actions = new List<string> { "content/read", "metadata/read" }
+            };
+            
+            var scopeMap = await _registryService.CreateScopeMapAsync(job.RegistryId.Value, scopeMapRequest);
+            job.AcrScopeMapId = scopeMap.Id;
+            _logger.LogInformation("Created scope map {ScopeMapName} for scheduled job run", scopeMapName);
+
+            // Create token for the scope map
+            var tokenName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+            var tokenRequest = new CreateTokenRequest
+            {
+                Name = tokenName,
+                ScopeMapId = scopeMap.Id,
+                AssignToJobId = job.Id
+            };
+            
+            var tokenResponse = await _registryService.CreateTokenAsync(job.RegistryId.Value, tokenRequest);
+            job.AcrTokenId = tokenResponse.Id;
+            
+            // Set the registry credentials from the newly created token
+            job.RegistryServer = registry.Server;
+            job.RegistryUsername = tokenResponse.Username;
+            job.RegistryPassword = tokenResponse.Password;
+            
+            _dataStore.UpdateJob(job);
+            
+            _logger.LogInformation("Created token {TokenName} for scheduled job run with username {Username}",
+                tokenName, tokenResponse.Username);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create ACR scope map/token for scheduled job run {JobId}. Job will attempt to use existing credentials.", job.Id);
+            // Don't fail the job - it might still work with static credentials
+        }
     }
 
     /// <summary>
@@ -374,7 +451,7 @@ public sealed class JobsController : ControllerBase
     /// Retry a failed job (reset to pending)
     /// </summary>
     [HttpPost("{id}/retry")]
-    public ActionResult<Job> RetryJob(Guid id)
+    public async Task<ActionResult<Job>> RetryJob(Guid id)
     {
         var job = _dataStore.GetJob(id);
         if (job == null)
@@ -398,22 +475,111 @@ public sealed class JobsController : ControllerBase
         updatedJob.StartedAt = null;
         updatedJob.AssignedToOrchestratorId = null;
         
-        // Note: ACR token/scope map were cleaned up when the job failed.
-        // Clear the references since these resources no longer exist.
-        // The job will need to use existing registry credentials or fail.
-        if (updatedJob.AcrTokenId.HasValue || updatedJob.AcrScopeMapId.HasValue)
+        // Clear old ACR token/scope map references (they were cleaned up when the job failed)
+        updatedJob.AcrTokenId = null;
+        updatedJob.AcrScopeMapId = null;
+        
+        // Regenerate ACR credentials if the job uses an ACR registry
+        if (updatedJob.RegistryId.HasValue)
         {
-            _logger.LogWarning("Job {JobId} had ACR token/scope map that were cleaned up on failure. " +
-                "These will not be recreated. The job must use existing registry credentials.",
-                id);
-            updatedJob.AcrTokenId = null;
-            updatedJob.AcrScopeMapId = null;
+            var registry = _dataStore.GetRegistry(updatedJob.RegistryId.Value);
+            if (registry != null && registry.Type == RegistryType.AzureContainerRegistry)
+            {
+                try
+                {
+                    // Extract repository from container image (format: registry/repo:tag)
+                    var imageRepository = ExtractRepositoryFromImage(updatedJob.ContainerImage, registry.Server);
+                    
+                    if (!string.IsNullOrEmpty(imageRepository))
+                    {
+                        _logger.LogInformation("Recreating ACR scope map and token for retried job {JobId} with repository {Repository}",
+                            id, imageRepository);
+
+                        // Create a unique scope map name for this retry
+                        var scopeMapName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                        
+                        var scopeMapRequest = new CreateScopeMapRequest
+                        {
+                            Name = scopeMapName,
+                            Description = $"Auto-created for retry of job: {updatedJob.Name}",
+                            Repositories = new List<string> { imageRepository },
+                            Actions = new List<string> { "content/read", "metadata/read" }
+                        };
+                        
+                        var scopeMap = await _registryService.CreateScopeMapAsync(updatedJob.RegistryId.Value, scopeMapRequest);
+                        updatedJob.AcrScopeMapId = scopeMap.Id;
+                        _logger.LogInformation("Created scope map {ScopeMapName} for retried job", scopeMapName);
+
+                        // Create token for the scope map
+                        var tokenName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
+                        var tokenRequest = new CreateTokenRequest
+                        {
+                            Name = tokenName,
+                            ScopeMapId = scopeMap.Id,
+                            AssignToJobId = updatedJob.Id
+                        };
+                        
+                        var tokenResponse = await _registryService.CreateTokenAsync(updatedJob.RegistryId.Value, tokenRequest);
+                        updatedJob.AcrTokenId = tokenResponse.Id;
+                        
+                        // Set the registry credentials from the newly created token
+                        updatedJob.RegistryServer = registry.Server;
+                        updatedJob.RegistryUsername = tokenResponse.Username;
+                        updatedJob.RegistryPassword = tokenResponse.Password;
+                        
+                        _logger.LogInformation("Created token {TokenName} for retried job with username {Username}",
+                            tokenName, tokenResponse.Username);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Could not extract repository from container image {Image} for job {JobId}",
+                            updatedJob.ContainerImage, id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to recreate ACR scope map/token for retried job {JobId}. Job will attempt to use existing credentials.", id);
+                    // Don't fail the retry - the job might still work with static credentials
+                }
+            }
         }
         
         _dataStore.UpdateJob(updatedJob);
 
         _logger.LogInformation("Job {JobId} reset to pending for retry", id);
         return Ok(updatedJob);
+    }
+    
+    /// <summary>
+    /// Extracts the repository name from a container image reference
+    /// </summary>
+    private static string? ExtractRepositoryFromImage(string containerImage, string registryServer)
+    {
+        if (string.IsNullOrEmpty(containerImage))
+            return null;
+            
+        // Remove registry server prefix if present
+        var image = containerImage;
+        if (image.StartsWith(registryServer, StringComparison.OrdinalIgnoreCase))
+        {
+            image = image.Substring(registryServer.Length).TrimStart('/');
+        }
+        
+        // Remove tag if present (e.g., "repo:tag" -> "repo")
+        var colonIndex = image.IndexOf(':');
+        if (colonIndex > 0)
+        {
+            image = image.Substring(0, colonIndex);
+        }
+        
+        // Remove digest if present (e.g., "repo@sha256:..." -> "repo")
+        var atIndex = image.IndexOf('@');
+        if (atIndex > 0)
+        {
+            image = image.Substring(0, atIndex);
+        }
+        
+        return string.IsNullOrEmpty(image) ? null : image;
     }
 
     /// <summary>
@@ -509,33 +675,5 @@ public sealed class JobsController : ControllerBase
             _logger.LogError(ex, "Failed to refresh ACR credentials for job {JobId}", id);
             return StatusCode(500, new { error = $"Failed to refresh ACR credentials: {ex.Message}" });
         }
-    }
-
-    /// <summary>
-    /// Extract repository path from a full container image name
-    /// </summary>
-    private string? ExtractRepositoryFromImage(string containerImage, string registryServer)
-    {
-        // Format: registry.azurecr.io/repo/path:tag -> repo/path
-        // Or: registry.azurecr.io/repo/path -> repo/path
-        
-        if (string.IsNullOrEmpty(containerImage))
-            return null;
-
-        // Remove the registry server prefix
-        var image = containerImage;
-        if (image.StartsWith(registryServer, StringComparison.OrdinalIgnoreCase))
-        {
-            image = image.Substring(registryServer.Length).TrimStart('/');
-        }
-
-        // Remove the tag if present
-        var colonIndex = image.LastIndexOf(':');
-        if (colonIndex > 0)
-        {
-            image = image.Substring(0, colonIndex);
-        }
-
-        return string.IsNullOrEmpty(image) ? null : image;
     }
 }
