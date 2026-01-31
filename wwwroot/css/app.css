@@ -528,6 +528,31 @@ td {
 .toast.warning { border-left: 4px solid #f59e0b; }
 .toast.info { border-left: 4px solid #3b82f6; }
 
+.toast-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast.success .toast-icon { color: #10b981; }
+.toast.error .toast-icon { color: #ef4444; }
+.toast.warning .toast-icon { color: #f59e0b; }
+.toast.info .toast-icon { color: #3b82f6; }
+
+.toast-content {
+    flex: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 2px;
+}
+
+.toast-message {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
 /* Parameter Input */
 .parameter-input {
     border: 1px solid #e5e7eb;
@@ -2309,9 +2334,12 @@ tr.expired td {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .toast-title,
-[data-theme="dark"] .toast-message {
+[data-theme="dark"] .toast-title {
     color: var(--text-primary);
+}
+
+[data-theme="dark"] .toast-message {
+    color: var(--text-muted);
 }
 
 [data-theme="dark"] .dashboard-footer {
