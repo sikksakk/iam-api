@@ -1,4 +1,5 @@
 using System.Text;
+using Asp.Versioning;
 using IamApi.Middleware;
 using IamApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -84,6 +85,26 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Le
 
 // Health checks
 builder.Services.AddHealthChecks();
+
+// Output caching for read-heavy endpoints
+builder.Services.AddOutputCache(options =>
+{
+    options.AddBasePolicy(builder => builder.Expire(TimeSpan.FromSeconds(10)));
+    options.AddPolicy("Short", builder => builder.Expire(TimeSpan.FromSeconds(30)));
+    options.AddPolicy("Medium", builder => builder.Expire(TimeSpan.FromMinutes(2)));
+});
+
+// API Versioning
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),
+        new HeaderApiVersionReader("X-Api-Version"),
+        new QueryStringApiVersionReader("api-version"));
+}).AddMvc();
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -192,6 +213,7 @@ if (enableSwagger)
 app.UseForwardedHeaders();
 app.UseCorrelationId();
 app.UseResponseCompression();
+app.UseOutputCache();
 app.UseCors("AllowAll");
 
 // Configure static file options to properly serve Blazor WASM files

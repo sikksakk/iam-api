@@ -1,6 +1,6 @@
 namespace IamApi.Models;
 
-public class CreateJobRequest
+public sealed class CreateJobRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Customer { get; set; } = string.Empty;
@@ -18,7 +18,7 @@ public class CreateJobRequest
     public DateTime? ScheduledFor { get; set; }
 }
 
-public class CreateLogRequest
+public sealed class CreateLogRequest
 {
     public Guid JobId { get; set; }
     public string Message { get; set; } = string.Empty;
@@ -26,7 +26,7 @@ public class CreateLogRequest
     public string? Source { get; set; }
 }
 
-public class CreateCustomerRequest
+public sealed class CreateCustomerRequest
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

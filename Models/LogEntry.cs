@@ -1,6 +1,6 @@
 namespace IamApi.Models;
 
-public class LogEntry
+public sealed class LogEntry
 {
     public Guid Id { get; set; }
     public Guid JobId { get; set; }

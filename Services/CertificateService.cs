@@ -7,7 +7,7 @@ using Microsoft.Graph.Models;
 
 namespace IamApi.Services;
 
-public class CertificateService : ICertificateService
+public sealed class CertificateService : ICertificateService
 {
     private readonly ILogger<CertificateService> _logger;
     private readonly IConfiguration _configuration;

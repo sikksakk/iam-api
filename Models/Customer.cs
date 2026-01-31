@@ -1,6 +1,6 @@
 namespace IamApi.Models;
 
-public class Customer
+public sealed class Customer
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Name { get; set; } = string.Empty;

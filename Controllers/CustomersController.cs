@@ -1,5 +1,7 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using IamApi.Models;
 using IamApi.Services;
 
@@ -7,8 +9,10 @@ namespace IamApi.Controllers;
 
 [Authorize]
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/[controller]")]
-public class CustomersController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+public sealed class CustomersController : ControllerBase
 {
     private readonly IDataStore _dataStore;
     private readonly ILogger<CustomersController> _logger;
@@ -20,6 +24,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpGet]
+    [OutputCache(PolicyName = "Short")]
     public ActionResult<IEnumerable<Customer>> GetCustomers()
     {
         var customers = _dataStore.GetCustomers();

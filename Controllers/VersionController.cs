@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Reflection;
@@ -6,8 +7,10 @@ namespace IamApi.Controllers;
 
 [AllowAnonymous]
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/[controller]")]
-public class VersionController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+public sealed class VersionController : ControllerBase
 {
     [HttpGet]
     public ActionResult<VersionInfo> GetVersion()
@@ -44,7 +47,7 @@ public class VersionController : ControllerBase
     }
 }
 
-public class VersionInfo
+public sealed class VersionInfo
 {
     public string Version { get; set; } = string.Empty;
     public DateTime BuildDate { get; set; }

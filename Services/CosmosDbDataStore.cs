@@ -4,7 +4,7 @@ using Microsoft.Azure.Cosmos;
 
 namespace IamApi.Services;
 
-public class CosmosDbDataStore : IDataStore
+public sealed class CosmosDbDataStore : IDataStore
 {
     private readonly ILogger<CosmosDbDataStore> _logger;
     private readonly CosmosClient _cosmosClient;

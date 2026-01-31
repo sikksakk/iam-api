@@ -1,6 +1,6 @@
 namespace IamApi.Models;
 
-public class ContainerRegistry
+public sealed class ContainerRegistry
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -23,7 +23,7 @@ public enum RegistryType
     AzureContainerRegistry
 }
 
-public class CreateRegistryRequest
+public sealed class CreateRegistryRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Server { get; set; } = string.Empty;

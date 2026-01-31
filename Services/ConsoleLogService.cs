@@ -9,7 +9,7 @@ public interface IConsoleLogService
     void Clear();
 }
 
-public class ConsoleLogEntry
+public sealed class ConsoleLogEntry
 {
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string Level { get; set; } = "Info";
@@ -17,7 +17,7 @@ public class ConsoleLogEntry
     public string? Category { get; set; }
 }
 
-public class ConsoleLogService : IConsoleLogService
+public sealed class ConsoleLogService : IConsoleLogService
 {
     private readonly ConcurrentQueue<ConsoleLogEntry> _logs = new();
     private const int MaxLogs = 2000;
@@ -59,7 +59,7 @@ public class ConsoleLogService : IConsoleLogService
 /// <summary>
 /// Logger provider that captures logs to the ConsoleLogService
 /// </summary>
-public class ConsoleLogProvider : ILoggerProvider
+public sealed class ConsoleLogProvider : ILoggerProvider
 {
     private readonly IConsoleLogService _consoleLogService;
 
@@ -76,7 +76,7 @@ public class ConsoleLogProvider : ILoggerProvider
     public void Dispose() { }
 }
 
-public class ConsoleLogger : ILogger
+public sealed class ConsoleLogger : ILogger
 {
     private readonly IConsoleLogService _consoleLogService;
     private readonly string _categoryName;

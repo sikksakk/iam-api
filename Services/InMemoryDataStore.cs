@@ -3,7 +3,7 @@ using IamApi.Models;
 
 namespace IamApi.Services;
 
-public class InMemoryDataStore : IDataStore
+public sealed class InMemoryDataStore : IDataStore
 {
     private readonly ConcurrentDictionary<Guid, Job> _jobs = new();
     private readonly ConcurrentQueue<LogEntry> _logs = new();

@@ -1,6 +1,6 @@
 namespace IamApi.Models;
 
-public class User
+public sealed class User
 {
     public string Username { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
@@ -8,13 +8,13 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
-public class LoginRequest
+public sealed class LoginRequest
 {
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }
 
-public class LoginResponse
+public sealed class LoginResponse
 {
     public string Token { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;

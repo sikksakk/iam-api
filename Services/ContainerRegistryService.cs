@@ -7,7 +7,7 @@ using Microsoft.Graph;
 
 namespace IamApi.Services;
 
-public class ContainerRegistryService : IContainerRegistryService
+public sealed class ContainerRegistryService : IContainerRegistryService
 {
     private readonly ILogger<ContainerRegistryService> _logger;
     private readonly IConfiguration _configuration;

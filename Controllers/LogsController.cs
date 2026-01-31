@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using IamApi.Models;
@@ -7,8 +8,10 @@ namespace IamApi.Controllers;
 
 [Authorize]
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/[controller]")]
-public class LogsController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+public sealed class LogsController : ControllerBase
 {
     private readonly IDataStore _dataStore;
     private readonly ILogger<LogsController> _logger;

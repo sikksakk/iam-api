@@ -5,7 +5,7 @@ namespace IamApi.Middleware;
 /// <summary>
 /// Middleware that ensures every request has a correlation ID for distributed tracing.
 /// </summary>
-public class CorrelationIdMiddleware
+public sealed class CorrelationIdMiddleware
 {
     private const string CorrelationIdHeader = "X-Correlation-ID";
     private readonly RequestDelegate _next;

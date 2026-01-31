@@ -1,5 +1,7 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using IamApi.Models;
 using IamApi.Services;
 
@@ -7,8 +9,10 @@ namespace IamApi.Controllers;
 
 [Authorize]
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/[controller]")]
-public class RegistriesController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+public sealed class RegistriesController : ControllerBase
 {
     private readonly IDataStore _dataStore;
     private readonly IContainerRegistryService _registryService;
@@ -25,6 +29,7 @@ public class RegistriesController : ControllerBase
     }
 
     [HttpGet]
+    [OutputCache(PolicyName = "Short")]
     public ActionResult<IEnumerable<ContainerRegistry>> GetAll()
     {
         return Ok(_dataStore.GetRegistries());

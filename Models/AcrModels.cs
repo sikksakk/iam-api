@@ -3,7 +3,7 @@ namespace IamApi.Models;
 /// <summary>
 /// Represents a container image repository
 /// </summary>
-public class ContainerImage
+public sealed class ContainerImage
 {
     public string Repository { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
@@ -14,7 +14,7 @@ public class ContainerImage
 /// <summary>
 /// Represents an ACR scope map that defines access permissions
 /// </summary>
-public class AcrScopeMap
+public sealed class AcrScopeMap
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -32,7 +32,7 @@ public class AcrScopeMap
 /// <summary>
 /// Represents an ACR token for authentication
 /// </summary>
-public class AcrToken
+public sealed class AcrToken
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -60,7 +60,7 @@ public enum TokenStatus
 }
 
 // Request/Response DTOs
-public class CreateScopeMapRequest
+public sealed class CreateScopeMapRequest
 {
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -68,7 +68,7 @@ public class CreateScopeMapRequest
     public List<string> Actions { get; set; } = new() { "content/read" };
 }
 
-public class CreateTokenRequest
+public sealed class CreateTokenRequest
 {
     public string Name { get; set; } = string.Empty;
     public Guid ScopeMapId { get; set; }
@@ -77,7 +77,7 @@ public class CreateTokenRequest
     public Guid? AssignToJobId { get; set; }
 }
 
-public class TokenResponse
+public sealed class TokenResponse
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -89,7 +89,7 @@ public class TokenResponse
     public DateTime? ExpiresAt { get; set; }
 }
 
-public class ContainerImageListResponse
+public sealed class ContainerImageListResponse
 {
     public string RegistryName { get; set; } = string.Empty;
     public List<ContainerImage> Images { get; set; } = new();

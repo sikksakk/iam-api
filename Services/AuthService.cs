@@ -7,7 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace IamApi.Services;
 
-public class AuthService : IAuthService
+public sealed class AuthService : IAuthService
 {
     private readonly IConfiguration _configuration;
     private readonly Dictionary<string, User> _users;

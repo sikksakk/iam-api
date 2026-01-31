@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using IamApi.Models;
 using IamApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -7,8 +8,10 @@ namespace IamApi.Controllers;
 
 [Authorize]
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/[controller]")]
-public class CertificatesController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+public sealed class CertificatesController : ControllerBase
 {
     private readonly ICertificateService _certificateService;
     private readonly ILogger<CertificatesController> _logger;

@@ -1,6 +1,6 @@
 namespace IamApi.Models;
 
-public class CustomerCertificate
+public sealed class CustomerCertificate
 {
     public string CustomerName { get; set; } = string.Empty;
     public string CertificateData { get; set; } = string.Empty; // Base64 encoded PFX
@@ -10,7 +10,7 @@ public class CustomerCertificate
     public string KeyId { get; set; } = string.Empty;
 }
 
-public class CertificateResponse
+public sealed class CertificateResponse
 {
     public string CustomerName { get; set; } = string.Empty;
     public string CertificateData { get; set; } = string.Empty; // Base64 encoded PFX

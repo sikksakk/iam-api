@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using IamApi.Models;
 using IamApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -6,8 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace IamApi.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+[Route("api/v{version:apiVersion}/[controller]")]
+public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly ILogger<AuthController> _logger;
