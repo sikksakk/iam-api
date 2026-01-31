@@ -239,31 +239,59 @@ public sealed class JobsController : ControllerBase
 
         // ALWAYS regenerate ACR credentials when transitioning to Running
         // Old tokens may have been deleted from Azure when previous runs completed/failed
-        // even if they still exist in our data store
-        if (status == JobStatus.Running && job.RegistryId.HasValue)
+        // Check both RegistryId and if the image is from ACR
+        var isAcrJob = job.RegistryId.HasValue || 
+                       (!string.IsNullOrEmpty(job.ContainerImage) && job.ContainerImage.Contains(".azurecr.io", StringComparison.OrdinalIgnoreCase));
+        
+        if (status == JobStatus.Running && isAcrJob)
         {
-            _logger.LogInformation("Job {JobId} transitioning to Running with ACR registry - generating fresh credentials (clearing old: Username={OldUsername}, AcrTokenId={OldTokenId})",
-                id, 
+            _logger.LogInformation("Job {JobId} transitioning to Running with ACR - generating fresh credentials (RegistryId={RegistryId}, Image={Image}, old Username={OldUsername}, AcrTokenId={OldTokenId})",
+                id,
+                job.RegistryId?.ToString() ?? "[NONE]",
+                job.ContainerImage ?? "[NONE]",
                 job.RegistryUsername ?? "[NONE]",
                 job.AcrTokenId?.ToString() ?? "[NONE]");
             
-            // Clear any existing credentials - we always generate fresh ones
-            job.RegistryUsername = null;
-            job.RegistryPassword = null;
-            job.AcrTokenId = null;
-            job.AcrScopeMapId = null;
+            // If no RegistryId but has ACR image, try to find the registry
+            if (!job.RegistryId.HasValue && !string.IsNullOrEmpty(job.ContainerImage))
+            {
+                var registryServer = job.ContainerImage.Split('/')[0];
+                var registry = _dataStore.GetAllRegistries()
+                    .FirstOrDefault(r => r.Server.Equals(registryServer, StringComparison.OrdinalIgnoreCase));
+                
+                if (registry != null)
+                {
+                    _logger.LogInformation("Found registry {RegistryName} (ID: {RegistryId}) for job {JobId} based on image {Image}",
+                        registry.Name, registry.Id, id, job.ContainerImage);
+                    job.RegistryId = registry.Id;
+                }
+                else
+                {
+                    _logger.LogWarning("Could not find registry for ACR image {Image} - cannot regenerate credentials", job.ContainerImage);
+                }
+            }
             
-            await RegenerateAcrCredentialsIfNeededAsync(job);
-            
-            _logger.LogInformation("Fresh ACR credentials generated for job {JobId}: Username={Username}, HasPassword={HasPassword}, AcrTokenId={TokenId}",
-                id,
-                job.RegistryUsername ?? "[NOT SET]",
-                !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
-                job.AcrTokenId?.ToString() ?? "[NOT SET]");
+            if (job.RegistryId.HasValue)
+            {
+                // Clear any existing credentials - we always generate fresh ones
+                job.RegistryUsername = null;
+                job.RegistryPassword = null;
+                job.AcrTokenId = null;
+                job.AcrScopeMapId = null;
+                
+                await RegenerateAcrCredentialsIfNeededAsync(job);
+                
+                _logger.LogInformation("Fresh ACR credentials generated for job {JobId}: Username={Username}, HasPassword={HasPassword}, AcrTokenId={TokenId}",
+                    id,
+                    job.RegistryUsername ?? "[NOT SET]",
+                    !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
+                    job.AcrTokenId?.ToString() ?? "[NOT SET]");
+            }
         }
         else if (status == JobStatus.Running)
         {
-            _logger.LogDebug("Job {JobId} has no RegistryId - ACR credential regeneration not needed", id);
+            _logger.LogDebug("Job {JobId} is not an ACR job (RegistryId={RegistryId}, Image={Image}) - no credential regeneration needed", 
+                id, job.RegistryId?.ToString() ?? "[NONE]", job.ContainerImage ?? "[NONE]");
         }
 
         // Clean up orchestrator assignment and ACR resources when job completes or fails
