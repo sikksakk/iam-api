@@ -24,6 +24,7 @@
                 <button class="clear-filters-btn" @onclick="ClearFilters">Clear Filters</button>
             }
         </div>
+        <div class="table-wrapper">
         <table class="sortable-table">
             <thead>
                 <tr>
@@ -69,6 +70,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 
     @if (selectedRegistry != null)

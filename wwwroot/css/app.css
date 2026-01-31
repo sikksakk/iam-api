@@ -1607,3 +1607,471 @@ tr.expired td {
     font-style: italic;
     margin-left: auto;
 }
+
+/* ============================================
+   RESPONSIVE / MOBILE STYLES
+   ============================================ */
+
+/* Viewport meta is handled in index.html */
+
+/* Make tables horizontally scrollable on small screens */
+.table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Responsive container */
+.container {
+    width: 100%;
+    padding: 16px;
+}
+
+/* ---- TABLET BREAKPOINT (max-width: 1024px) ---- */
+@media screen and (max-width: 1024px) {
+    .container {
+        padding: 16px;
+    }
+
+    header {
+        padding: 16px 20px;
+    }
+
+    .header-content {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    h1 {
+        font-size: 1.25rem;
+    }
+
+    .tabs {
+        padding: 0 16px;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .tab {
+        padding: 10px 16px;
+        font-size: 0.8rem;
+    }
+
+    .tab-content {
+        padding: 16px;
+    }
+
+    .tab-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-content {
+        padding: 20px;
+        margin: 16px;
+        width: calc(100% - 32px);
+    }
+
+    /* Table adjustments */
+    th, td {
+        padding: 10px 8px;
+        font-size: 0.8rem;
+    }
+
+    .filter-input {
+        font-size: 0.75rem;
+        padding: 6px 8px;
+    }
+
+    /* Buttons */
+    .edit-btn, .delete-btn, .copy-btn, .retry-btn, .view-btn, .update-btn, .action-btn, .refresh-btn, .clear-btn, .pause-btn, .resume-btn {
+        padding: 5px 8px;
+        font-size: 0.7rem;
+        min-width: 60px;
+        margin-right: 2px;
+        margin-bottom: 2px;
+    }
+
+    .add-btn, .cleanup-btn {
+        padding: 8px 16px;
+        font-size: 0.8rem;
+    }
+}
+
+/* ---- MOBILE BREAKPOINT (max-width: 768px) ---- */
+@media screen and (max-width: 768px) {
+    header {
+        padding: 12px 16px;
+    }
+
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    h1 {
+        font-size: 1.125rem;
+    }
+
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .user-name {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+
+    .logout-btn {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+
+    .tabs-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .tabs {
+        padding: 0 12px;
+        flex-wrap: nowrap;
+        gap: 2px;
+        min-width: max-content;
+    }
+
+    .tab {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .container {
+        padding: 12px;
+    }
+
+    .tab-content {
+        padding: 12px;
+        border-radius: 8px;
+    }
+
+    .tab-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .tab-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .add-btn, .cleanup-btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    /* Table: stack on mobile or allow horizontal scroll */
+    .table-wrapper {
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    table {
+        min-width: 700px; /* Force horizontal scroll for complex tables */
+    }
+
+    th, td {
+        padding: 8px 6px;
+        font-size: 0.75rem;
+    }
+
+    .filter-row th {
+        padding: 4px;
+    }
+
+    .filter-input {
+        font-size: 0.7rem;
+        padding: 4px 6px;
+    }
+
+    /* Action buttons stack vertically on mobile */
+    td:last-child {
+        white-space: nowrap;
+    }
+
+    .edit-btn, .delete-btn, .copy-btn, .retry-btn, .view-btn, .update-btn, .action-btn, .refresh-btn, .clear-btn, .pause-btn, .resume-btn {
+        padding: 4px 6px;
+        font-size: 0.65rem;
+        min-width: 50px;
+        margin-right: 2px;
+        margin-bottom: 2px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 16px 16px 0 0;
+        max-height: 90vh;
+        padding: 16px;
+    }
+
+    .modal-large {
+        max-width: 100%;
+    }
+
+    .modal-header {
+        margin-bottom: 16px;
+    }
+
+    .modal-header h3 {
+        font-size: 1.2rem;
+    }
+
+    .modal-footer {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .modal-footer button {
+        width: 100%;
+    }
+
+    /* Form controls */
+    .form-group {
+        margin-bottom: 12px;
+    }
+
+    .form-control {
+        padding: 10px;
+        font-size: 16px; /* Prevent iOS zoom on focus */
+    }
+
+    /* Parameter inputs */
+    .parameter-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .param-key, .param-value {
+        width: 100%;
+    }
+
+    /* Status badges */
+    .status-badge {
+        padding: 3px 8px;
+        font-size: 0.65rem;
+    }
+
+    /* Toast on mobile */
+    .toast-container {
+        top: auto;
+        bottom: 20px;
+        right: 12px;
+        left: 12px;
+    }
+
+    .toast {
+        min-width: auto;
+        max-width: 100%;
+    }
+
+    /* Footer */
+    .dashboard-footer {
+        padding: 8px 12px;
+    }
+
+    .build-info {
+        font-size: 0.7rem;
+    }
+
+    /* Table info bar */
+    .table-info-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 0.75rem;
+    }
+
+    /* Cron scheduler */
+    .cron-scheduler {
+        padding: 12px;
+    }
+
+    .day-buttons {
+        flex-wrap: wrap;
+    }
+
+    .day-btn {
+        padding: 8px 10px;
+        font-size: 0.7rem;
+    }
+
+    .time-picker {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .time-picker input, .time-picker select {
+        width: 100%;
+    }
+}
+
+/* ---- SMALL MOBILE BREAKPOINT (max-width: 480px) ---- */
+@media screen and (max-width: 480px) {
+    h1 {
+        font-size: 1rem;
+    }
+
+    .tab {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+    }
+
+    .tab-header h2 {
+        font-size: 1rem;
+    }
+
+    .modal-header h3 {
+        font-size: 1.1rem;
+    }
+
+    /* Login page */
+    .login-container {
+        padding: 16px;
+    }
+
+    .login-box {
+        padding: 24px 16px;
+    }
+
+    .login-box h1 {
+        font-size: 1.5rem;
+    }
+
+    .login-box .subtitle {
+        font-size: 0.85rem;
+    }
+}
+
+/* ---- LANDSCAPE MOBILE ---- */
+@media screen and (max-width: 768px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 85vh;
+    }
+
+    .tabs {
+        justify-content: center;
+    }
+}
+
+/* ---- PRINT STYLES ---- */
+@media print {
+    header, .tabs-container, .dashboard-footer, .add-btn, .modal-overlay, .toast-container {
+        display: none !important;
+    }
+
+    .container {
+        padding: 0;
+        max-width: 100%;
+    }
+
+    .tab-content {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+
+    table {
+        font-size: 10pt;
+    }
+}
+
+/* ---- TOUCH-FRIENDLY ENHANCEMENTS ---- */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets for mobile */
+    .tab {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .edit-btn, .delete-btn, .copy-btn, .retry-btn, .view-btn, .update-btn, .action-btn, .refresh-btn, .clear-btn, .pause-btn, .resume-btn {
+        min-height: 36px;
+        min-width: 60px;
+    }
+
+    .add-btn, .cleanup-btn, .submit-btn, .cancel-btn {
+        min-height: 44px;
+    }
+
+    .form-control, .filter-input {
+        min-height: 44px;
+    }
+
+    /* Remove hover effects that don't work on touch */
+    .tab:hover,
+    .edit-btn:hover,
+    .delete-btn:hover,
+    .add-btn:hover {
+        /* Reset hover states - they'll use :active instead */
+    }
+
+    /* Add active states for touch feedback */
+    .tab:active,
+    .edit-btn:active,
+    .delete-btn:active,
+    .add-btn:active,
+    .submit-btn:active,
+    .cancel-btn:active {
+        opacity: 0.8;
+        transform: scale(0.98);
+    }
+}
+
+/* ---- SAFE AREA INSETS (for notched devices) ---- */
+@supports (padding: max(0px)) {
+    .container {
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
+    }
+
+    .modal-content {
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+
+    .dashboard-footer {
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+}
+
+/* ---- DARK MODE SUPPORT (optional, follows system preference) ---- */
+@media (prefers-color-scheme: dark) {
+    /* Uncomment to enable dark mode:
+    body {
+        background: #1f2937;
+        color: #f9fafb;
+    }
+    
+    .tab-content {
+        background: #374151;
+    }
+    
+    .form-control {
+        background: #4b5563;
+        border-color: #6b7280;
+        color: #f9fafb;
+    }
+    */
+}
