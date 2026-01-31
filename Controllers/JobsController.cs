@@ -237,9 +237,12 @@ public sealed class JobsController : ControllerBase
 
         _logger.LogInformation("Updated job {JobId} status to {Status}", id, status);
 
-        // For scheduled jobs transitioning to Running, regenerate ACR credentials for this run
-        if (status == JobStatus.Running && job.JobType == JobType.Scheduled && job.RegistryId.HasValue)
+        // Regenerate ACR credentials when transitioning to Running if they're missing
+        // This handles: scheduled job runs, retried jobs, or any job that lost credentials
+        if (status == JobStatus.Running && job.RegistryId.HasValue && 
+            (string.IsNullOrEmpty(job.RegistryUsername) || string.IsNullOrEmpty(job.RegistryPassword)))
         {
+            _logger.LogInformation("Job {JobId} is starting but has no ACR credentials - regenerating", id);
             await RegenerateAcrCredentialsIfNeededAsync(job);
         }
 
@@ -265,12 +268,28 @@ public sealed class JobsController : ControllerBase
     /// </summary>
     private async Task RegenerateAcrCredentialsIfNeededAsync(Job job)
     {
+        _logger.LogDebug("RegenerateAcrCredentialsIfNeededAsync: JobId={JobId}, RegistryId={RegistryId}",
+            job.Id, job.RegistryId);
+            
         if (!job.RegistryId.HasValue)
+        {
+            _logger.LogDebug("Job {JobId} has no RegistryId - skipping ACR credential regeneration", job.Id);
             return;
+        }
             
         var registry = _dataStore.GetRegistry(job.RegistryId.Value);
-        if (registry == null || registry.Type != RegistryType.AzureContainerRegistry)
+        if (registry == null)
+        {
+            _logger.LogWarning("Registry {RegistryId} not found for job {JobId}", job.RegistryId.Value, job.Id);
             return;
+        }
+        
+        if (registry.Type != RegistryType.AzureContainerRegistry)
+        {
+            _logger.LogDebug("Registry {RegistryId} is not ACR (Type={Type}) - skipping credential regeneration",
+                job.RegistryId.Value, registry.Type);
+            return;
+        }
             
         try
         {
@@ -480,9 +499,15 @@ public sealed class JobsController : ControllerBase
         updatedJob.AcrScopeMapId = null;
         
         // Regenerate ACR credentials if the job uses an ACR registry
+        _logger.LogDebug("Retry job {JobId}: RegistryId={RegistryId}, ContainerImage={ContainerImage}",
+            id, updatedJob.RegistryId, updatedJob.ContainerImage);
+            
         if (updatedJob.RegistryId.HasValue)
         {
             var registry = _dataStore.GetRegistry(updatedJob.RegistryId.Value);
+            _logger.LogDebug("Retry job {JobId}: Registry found={Found}, Type={Type}",
+                id, registry != null, registry?.Type);
+                
             if (registry != null && registry.Type == RegistryType.AzureContainerRegistry)
             {
                 try
