@@ -470,7 +470,7 @@ public sealed class JobsController : ControllerBase
     /// Retry a failed job (reset to pending)
     /// </summary>
     [HttpPost("{id}/retry")]
-    public async Task<ActionResult<Job>> RetryJob(Guid id)
+    public ActionResult<Job> RetryJob(Guid id)
     {
         var job = _dataStore.GetJob(id);
         if (job == null)
@@ -494,80 +494,21 @@ public sealed class JobsController : ControllerBase
         updatedJob.StartedAt = null;
         updatedJob.AssignedToOrchestratorId = null;
         
+        // Clear old ACR credentials (they were cleaned up from Azure when the job failed)
+        // This forces regeneration when the job transitions to Running
+        if (updatedJob.RegistryId.HasValue)
+        {
+            _logger.LogInformation("Clearing old ACR credentials for retried job {JobId}", id);
+            updatedJob.RegistryUsername = null;
+            updatedJob.RegistryPassword = null;
+        }
+        
         // Clear old ACR token/scope map references (they were cleaned up when the job failed)
         updatedJob.AcrTokenId = null;
         updatedJob.AcrScopeMapId = null;
         
-        // Regenerate ACR credentials if the job uses an ACR registry
-        _logger.LogDebug("Retry job {JobId}: RegistryId={RegistryId}, ContainerImage={ContainerImage}",
-            id, updatedJob.RegistryId, updatedJob.ContainerImage);
-            
-        if (updatedJob.RegistryId.HasValue)
-        {
-            var registry = _dataStore.GetRegistry(updatedJob.RegistryId.Value);
-            _logger.LogDebug("Retry job {JobId}: Registry found={Found}, Type={Type}",
-                id, registry != null, registry?.Type);
-                
-            if (registry != null && registry.Type == RegistryType.AzureContainerRegistry)
-            {
-                try
-                {
-                    // Extract repository from container image (format: registry/repo:tag)
-                    var imageRepository = ExtractRepositoryFromImage(updatedJob.ContainerImage, registry.Server);
-                    
-                    if (!string.IsNullOrEmpty(imageRepository))
-                    {
-                        _logger.LogInformation("Recreating ACR scope map and token for retried job {JobId} with repository {Repository}",
-                            id, imageRepository);
-
-                        // Create a unique scope map name for this retry
-                        var scopeMapName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
-                        
-                        var scopeMapRequest = new CreateScopeMapRequest
-                        {
-                            Name = scopeMapName,
-                            Description = $"Auto-created for retry of job: {updatedJob.Name}",
-                            Repositories = new List<string> { imageRepository },
-                            Actions = new List<string> { "content/read", "metadata/read" }
-                        };
-                        
-                        var scopeMap = await _registryService.CreateScopeMapAsync(updatedJob.RegistryId.Value, scopeMapRequest);
-                        updatedJob.AcrScopeMapId = scopeMap.Id;
-                        _logger.LogInformation("Created scope map {ScopeMapName} for retried job", scopeMapName);
-
-                        // Create token for the scope map
-                        var tokenName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
-                        var tokenRequest = new CreateTokenRequest
-                        {
-                            Name = tokenName,
-                            ScopeMapId = scopeMap.Id,
-                            AssignToJobId = updatedJob.Id
-                        };
-                        
-                        var tokenResponse = await _registryService.CreateTokenAsync(updatedJob.RegistryId.Value, tokenRequest);
-                        updatedJob.AcrTokenId = tokenResponse.Id;
-                        
-                        // Set the registry credentials from the newly created token
-                        updatedJob.RegistryServer = registry.Server;
-                        updatedJob.RegistryUsername = tokenResponse.Username;
-                        updatedJob.RegistryPassword = tokenResponse.Password;
-                        
-                        _logger.LogInformation("Created token {TokenName} for retried job with username {Username}",
-                            tokenName, tokenResponse.Username);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Could not extract repository from container image {Image} for job {JobId}",
-                            updatedJob.ContainerImage, id);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to recreate ACR scope map/token for retried job {JobId}. Job will attempt to use existing credentials.", id);
-                    // Don't fail the retry - the job might still work with static credentials
-                }
-            }
-        }
+        // ACR credentials will be regenerated when the orchestrator picks up the job
+        // and updates the status to Running (handled in UpdateJobStatus)
         
         _dataStore.UpdateJob(updatedJob);
 
