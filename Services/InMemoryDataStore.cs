@@ -6,8 +6,11 @@ namespace IamApi.Services;
 public class InMemoryDataStore : IDataStore
 {
     private readonly ConcurrentDictionary<Guid, Job> _jobs = new();
-    private readonly ConcurrentBag<LogEntry> _logs = new();
+    private readonly ConcurrentQueue<LogEntry> _logs = new();
     private readonly ConcurrentDictionary<string, Orchestrator> _orchestrators = new();
+    
+    // Maximum number of log entries to keep in memory
+    private const int MaxLogEntries = 10000;
     private readonly ConcurrentDictionary<Guid, ContainerRegistry> _registries = new();
     private readonly ConcurrentDictionary<string, Customer> _customers = new();
     private readonly ConcurrentDictionary<Guid, AcrScopeMap> _scopeMaps = new();
@@ -102,7 +105,11 @@ public class InMemoryDataStore : IDataStore
     {
         log.Id = Guid.NewGuid();
         log.Timestamp = DateTime.UtcNow;
-        _logs.Add(log);
+        _logs.Enqueue(log);
+        
+        // Prune old entries to prevent unbounded memory growth
+        while (_logs.Count > MaxLogEntries && _logs.TryDequeue(out _)) { }
+        
         return log;
     }
 
