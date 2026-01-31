@@ -1,7 +1,9 @@
 using System.Text;
+using IamApi.Middleware;
 using IamApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.IdentityModel.Tokens;
 
@@ -64,6 +66,24 @@ builder.Services.AddHostedService<IamApi.JobSchedulingWorker>();
 
 // Console log capture service
 builder.Services.AddSingleton<IConsoleLogService, ConsoleLogService>();
+
+// Response compression for API responses
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/json",
+        "text/plain"
+    });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = System.IO.Compression.CompressionLevel.Fastest);
+
+// Health checks
+builder.Services.AddHealthChecks();
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -170,6 +190,8 @@ if (enableSwagger)
 }
 
 app.UseForwardedHeaders();
+app.UseCorrelationId();
+app.UseResponseCompression();
 app.UseCors("AllowAll");
 
 // Configure static file options to properly serve Blazor WASM files
@@ -194,8 +216,43 @@ app.MapControllers();
 // Fallback to index.html for client-side routing, but not for API routes
 app.MapFallbackToFile("index.html").AllowAnonymous();
 
+// Health check endpoints with detailed status
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var response = new
+        {
+            status = report.Status.ToString(),
+            totalDuration = report.TotalDuration.TotalMilliseconds,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds,
+                description = e.Value.Description,
+                exception = e.Value.Exception?.Message
+            })
+        };
+        await context.Response.WriteAsJsonAsync(response);
+    }
+}).AllowAnonymous();
+
 app.MapGet("/healthz", () => Results.Ok("ok")).AllowAnonymous();
-app.MapGet("/health", () => Results.Ok("ok")).AllowAnonymous();
+app.MapGet("/ready", async (IDataStore dataStore) =>
+{
+    try
+    {
+        // Quick check if data store is accessible
+        var _ = dataStore.GetOrchestrators().Take(1).ToList();
+        return Results.Ok(new { status = "ready", timestamp = DateTime.UtcNow });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(detail: ex.Message, statusCode: 503);
+    }
+}).AllowAnonymous();
 
 // Managed Identity diagnostics endpoint
 app.MapGet("/debug/managed-identity", async (ILogger<Program> logger) =>

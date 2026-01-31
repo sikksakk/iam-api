@@ -70,28 +70,26 @@ public class JobsController : ControllerBase
             return BadRequest($"Orchestrator '{orchestratorId}' is registered for customer '{orchestrator.CustomerName}', not '{customer}'.");
         }
         
-        var jobs = _dataStore.GetPendingJobs()
-            .Where(j => j.Customer.Equals(customer, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        // OPTIMIZATION: Single query instead of N+1 - get all jobs once and filter in memory
+        var allJobs = _dataStore.GetAllJobs().ToList();
         
         // Check if this orchestrator already has a job assigned (running)
-        var runningJobs = _dataStore.GetAllJobs()
-            .Where(j => j.Status == JobStatus.Running && 
-                        j.AssignedToOrchestratorId == orchestratorId)
-            .ToList();
+        var hasRunningJob = allJobs.Any(j => 
+            j.Status == JobStatus.Running && 
+            j.AssignedToOrchestratorId == orchestratorId);
         
-        if (runningJobs.Any())
+        if (hasRunningJob)
         {
             // Orchestrator already has a running job - don't give another one
-            _logger.LogDebug("Orchestrator {OrchestratorId} already has {Count} running job(s), not assigning new job",
-                orchestratorId, runningJobs.Count);
+            _logger.LogDebug("Orchestrator {OrchestratorId} already has running job(s), not assigning new job", orchestratorId);
             return Ok(Enumerable.Empty<Job>());
         }
         
-        // Find a job that is not assigned to any orchestrator, or was assigned to this one
-        var availableJob = jobs
-            .Where(j => string.IsNullOrEmpty(j.AssignedToOrchestratorId) || 
-                        j.AssignedToOrchestratorId == orchestratorId)
+        // Find pending jobs for this customer
+        var availableJob = allJobs
+            .Where(j => j.Status == JobStatus.Pending &&
+                        j.Customer.Equals(customer, StringComparison.OrdinalIgnoreCase) &&
+                        (string.IsNullOrEmpty(j.AssignedToOrchestratorId) || j.AssignedToOrchestratorId == orchestratorId))
             .OrderBy(j => j.CreatedAt) // FIFO - oldest first
             .FirstOrDefault();
         
