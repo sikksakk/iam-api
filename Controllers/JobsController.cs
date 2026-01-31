@@ -256,7 +256,7 @@ public sealed class JobsController : ControllerBase
             if (!job.RegistryId.HasValue && !string.IsNullOrEmpty(job.ContainerImage))
             {
                 var registryServer = job.ContainerImage.Split('/')[0];
-                var registry = _dataStore.GetAllRegistries()
+                var registry = _dataStore.GetRegistries()
                     .FirstOrDefault(r => r.Server.Equals(registryServer, StringComparison.OrdinalIgnoreCase));
                 
                 if (registry != null)
