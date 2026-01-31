@@ -10,6 +10,16 @@
         <div class="header-content">
             <h1>🔐 IAM Dashboard</h1>
             <div class="user-info">
+                <button class="theme-toggle-btn" @onclick="ToggleDarkMode" title="@(isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+                    @if (isDarkMode)
+                    {
+                        <span class="theme-icon">☀️</span>
+                    }
+                    else
+                    {
+                        <span class="theme-icon">🌙</span>
+                    }
+                </button>
                 <div class="user-name">@username</div>
                 <button class="logout-btn" @onclick="Logout">Logout</button>
             </div>
@@ -67,6 +77,7 @@
     private string previousTab = "orchestrators";
     private string username = "Loading...";
     private string buildVersion = "1.0.0";
+    private bool isDarkMode = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -82,6 +93,9 @@
             var user = await Api.GetCurrentUser();
             username = user?.Username ?? "Unknown";
             buildVersion = await Api.GetBuildVersion();
+            
+            // Get initial dark mode state
+            isDarkMode = await JS.InvokeAsync<bool>("darkMode.get");
         }
         catch
         {
@@ -97,6 +111,11 @@
                 }
             });
         ");
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        isDarkMode = await JS.InvokeAsync<bool>("darkMode.toggle");
     }
 
     private void SwitchTab(string tab)

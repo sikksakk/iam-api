@@ -2,10 +2,14 @@
 @inject ApiService Api
 @inject NavigationManager Navigation
 @inject ToastService Toast
+@inject IJSRuntime JS
 
 <PageTitle>Login - IAM Dashboard</PageTitle>
 
 <div class="login-container">
+    <button class="theme-toggle-btn login-theme-btn" @onclick="ToggleDarkMode" title="@(isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+        <span class="theme-icon">@(isDarkMode ? "☀️" : "🌙")</span>
+    </button>
     <div class="login-box">
         <h1>🔐 IAM Dashboard</h1>
         <p class="subtitle">Identity & Access Management</p>
@@ -44,9 +48,12 @@
     private bool isLoading = false;
     private string buildVersion = "1.0.0";
     private int clickCount = 0;
+    private bool isDarkMode = false;
 
     protected override async Task OnInitializedAsync()
     {
+        isDarkMode = await JS.InvokeAsync<bool>("darkMode.get");
+        
         var token = await Api.GetToken();
         if (!string.IsNullOrEmpty(token))
         {
@@ -104,5 +111,10 @@
             }
             catch { }
         }
+    }
+
+    private async Task ToggleDarkMode()
+    {
+        isDarkMode = await JS.InvokeAsync<bool>("darkMode.toggle");
     }
 }
