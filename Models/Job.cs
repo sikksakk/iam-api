@@ -21,6 +21,9 @@ public class Job
     public DateTime? CompletedAt { get; set; }
     public DateTime? ScheduledFor { get; set; }
     
+    // Orchestrator assignment
+    public string? AssignedToOrchestratorId { get; set; }
+    
     // ACR token management
     public Guid? RegistryId { get; set; }
     public Guid? AcrScopeMapId { get; set; }

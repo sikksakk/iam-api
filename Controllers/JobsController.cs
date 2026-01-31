@@ -36,18 +36,78 @@ public class JobsController : ControllerBase
 
     /// <summary>
     /// Get pending jobs (for orchestrator)
+    /// Each orchestrator must specify its ID and handles jobs for a specific customer.
+    /// Returns at most ONE job per orchestrator to ensure fair distribution when multiple orchestrators handle the same customer.
     /// </summary>
     [HttpGet("pending")]
-    public ActionResult<IEnumerable<Job>> GetPendingJobs([FromQuery] string? customer = null)
+    public ActionResult<IEnumerable<Job>> GetPendingJobs(
+        [FromQuery] string? orchestratorId = null,
+        [FromQuery] string? customer = null)
     {
-        var jobs = _dataStore.GetPendingJobs();
-        
-        if (!string.IsNullOrEmpty(customer))
+        // Orchestrator ID is required to ensure proper job assignment
+        if (string.IsNullOrEmpty(orchestratorId))
         {
-            jobs = jobs.Where(j => j.Customer.Equals(customer, StringComparison.OrdinalIgnoreCase));
+            return BadRequest("orchestratorId is required. Each orchestrator must identify itself.");
         }
         
-        return Ok(jobs);
+        // Customer is required - no "all customers" orchestrators allowed
+        if (string.IsNullOrEmpty(customer))
+        {
+            return BadRequest("customer is required. Each orchestrator must handle a specific customer.");
+        }
+        
+        // Verify orchestrator is registered and handles this customer
+        var orchestrators = _dataStore.GetOrchestrators();
+        var orchestrator = orchestrators.FirstOrDefault(o => o.Id == orchestratorId);
+        
+        if (orchestrator == null)
+        {
+            return BadRequest($"Orchestrator '{orchestratorId}' is not registered. Send a heartbeat first.");
+        }
+        
+        if (!orchestrator.CustomerName.Equals(customer, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest($"Orchestrator '{orchestratorId}' is registered for customer '{orchestrator.CustomerName}', not '{customer}'.");
+        }
+        
+        var jobs = _dataStore.GetPendingJobs()
+            .Where(j => j.Customer.Equals(customer, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        
+        // Check if this orchestrator already has a job assigned (running)
+        var runningJobs = _dataStore.GetAllJobs()
+            .Where(j => j.Status == JobStatus.Running && 
+                        j.AssignedToOrchestratorId == orchestratorId)
+            .ToList();
+        
+        if (runningJobs.Any())
+        {
+            // Orchestrator already has a running job - don't give another one
+            _logger.LogDebug("Orchestrator {OrchestratorId} already has {Count} running job(s), not assigning new job",
+                orchestratorId, runningJobs.Count);
+            return Ok(Enumerable.Empty<Job>());
+        }
+        
+        // Find a job that is not assigned to any orchestrator, or was assigned to this one
+        var availableJob = jobs
+            .Where(j => string.IsNullOrEmpty(j.AssignedToOrchestratorId) || 
+                        j.AssignedToOrchestratorId == orchestratorId)
+            .OrderBy(j => j.CreatedAt) // FIFO - oldest first
+            .FirstOrDefault();
+        
+        if (availableJob != null)
+        {
+            // Assign the job to this orchestrator
+            availableJob.AssignedToOrchestratorId = orchestratorId;
+            _dataStore.UpdateJob(availableJob);
+            
+            _logger.LogInformation("Assigned job {JobId} ({JobName}) to orchestrator {OrchestratorId} for customer {Customer}",
+                availableJob.Id, availableJob.Name, orchestratorId, customer);
+            
+            return Ok(new[] { availableJob });
+        }
+        
+        return Ok(Enumerable.Empty<Job>());
     }
 
     /// <summary>
@@ -176,9 +236,17 @@ public class JobsController : ControllerBase
 
         _logger.LogInformation("Updated job {JobId} status to {Status}", id, status);
 
-        // Clean up ACR token and scope map when job completes or fails
+        // Clean up orchestrator assignment and ACR resources when job completes or fails
         if (status == JobStatus.Completed || status == JobStatus.Failed)
         {
+            // Clear the orchestrator assignment so the job slot becomes available
+            if (!string.IsNullOrEmpty(job.AssignedToOrchestratorId))
+            {
+                _logger.LogInformation("Clearing orchestrator assignment for completed/failed job {JobId}", id);
+                job.AssignedToOrchestratorId = null;
+                _dataStore.UpdateJob(job);
+            }
+            
             await CleanupAcrResourcesAsync(job);
         }
 
@@ -324,9 +392,11 @@ public class JobsController : ControllerBase
             return NotFound();
         }
 
-        // Clear the completion timestamp to allow re-execution
+        // Clear the completion timestamp and orchestrator assignment to allow re-execution
         updatedJob.CompletedAt = null;
         updatedJob.StartedAt = null;
+        updatedJob.AssignedToOrchestratorId = null;
+        _dataStore.UpdateJob(updatedJob);
 
         _logger.LogInformation("Job {JobId} reset to pending for retry", id);
         return Ok(updatedJob);
