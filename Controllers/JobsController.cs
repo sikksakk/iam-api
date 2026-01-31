@@ -237,13 +237,56 @@ public sealed class JobsController : ControllerBase
 
         _logger.LogInformation("Updated job {JobId} status to {Status}", id, status);
 
-        // Regenerate ACR credentials when transitioning to Running if they're missing
-        // This handles: scheduled job runs, retried jobs, or any job that lost credentials
-        if (status == JobStatus.Running && job.RegistryId.HasValue && 
-            (string.IsNullOrEmpty(job.RegistryUsername) || string.IsNullOrEmpty(job.RegistryPassword)))
+        // Regenerate ACR credentials when transitioning to Running
+        // This handles: scheduled job runs, retried jobs, copied jobs, or any job that needs fresh credentials
+        // ALWAYS regenerate for ACR jobs to ensure we have valid, fresh tokens
+        if (status == JobStatus.Running)
         {
-            _logger.LogInformation("Job {JobId} is starting but has no ACR credentials - regenerating", id);
-            await RegenerateAcrCredentialsIfNeededAsync(job);
+            _logger.LogDebug("Job {JobId} transitioning to Running - checking ACR credentials. RegistryId: {RegistryId}, RegistryUsername: {Username}, HasPassword: {HasPassword}, AcrTokenId: {TokenId}",
+                id, 
+                job.RegistryId?.ToString() ?? "[NOT SET]",
+                job.RegistryUsername ?? "[NOT SET]",
+                !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
+                job.AcrTokenId?.ToString() ?? "[NOT SET]");
+                
+            if (job.RegistryId.HasValue)
+            {
+                // Check if we have a valid AcrTokenId - if not, we need fresh credentials
+                // Also regenerate if we have stale credentials (username but no valid token reference)
+                var needsNewCredentials = !job.AcrTokenId.HasValue || 
+                    string.IsNullOrEmpty(job.RegistryUsername) || 
+                    string.IsNullOrEmpty(job.RegistryPassword);
+                
+                if (needsNewCredentials)
+                {
+                    _logger.LogInformation("Job {JobId} is starting and needs fresh ACR credentials (AcrTokenId: {TokenId}, HasUsername: {HasUsername}) - regenerating", 
+                        id, job.AcrTokenId?.ToString() ?? "[NOT SET]", !string.IsNullOrEmpty(job.RegistryUsername));
+                    
+                    // Clear any stale credentials before regenerating
+                    job.RegistryUsername = null;
+                    job.RegistryPassword = null;
+                    job.AcrTokenId = null;
+                    job.AcrScopeMapId = null;
+                    
+                    await RegenerateAcrCredentialsIfNeededAsync(job);
+                    
+                    // Log the result of credential regeneration
+                    _logger.LogInformation("After ACR credential regeneration for job {JobId}: Username={Username}, HasPassword={HasPassword}, AcrTokenId={TokenId}, AcrScopeMapId={ScopeMapId}",
+                        id,
+                        job.RegistryUsername ?? "[NOT SET]",
+                        !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
+                        job.AcrTokenId?.ToString() ?? "[NOT SET]",
+                        job.AcrScopeMapId?.ToString() ?? "[NOT SET]");
+                }
+                else
+                {
+                    _logger.LogDebug("Job {JobId} already has valid ACR credentials with AcrTokenId {TokenId}", id, job.AcrTokenId);
+                }
+            }
+            else
+            {
+                _logger.LogDebug("Job {JobId} has no RegistryId - ACR credential regeneration not needed", id);
+            }
         }
 
         // Clean up orchestrator assignment and ACR resources when job completes or fails
@@ -303,8 +346,10 @@ public sealed class JobsController : ControllerBase
                 return;
             }
             
-            _logger.LogInformation("Creating ACR scope map and token for scheduled job run {JobId} with repository {Repository}",
-                job.Id, imageRepository);
+            _logger.LogInformation("Creating ACR scope map and token for job {JobId} ({JobName}) with repository {Repository}",
+                job.Id, job.Name, imageRepository);
+            _logger.LogDebug("ACR credential regeneration - Registry: {RegistryServer}, RegistryId: {RegistryId}",
+                registry.Server, job.RegistryId);
 
             // Create a unique scope map name for this run
             var scopeMapName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
@@ -319,7 +364,8 @@ public sealed class JobsController : ControllerBase
             
             var scopeMap = await _registryService.CreateScopeMapAsync(job.RegistryId.Value, scopeMapRequest);
             job.AcrScopeMapId = scopeMap.Id;
-            _logger.LogInformation("Created scope map {ScopeMapName} for scheduled job run", scopeMapName);
+            _logger.LogInformation("Created ACR scope map {ScopeMapName} (ID: {ScopeMapId}) for job {JobId} - Repositories: [{Repositories}], Actions: [{Actions}]",
+                scopeMapName, scopeMap.Id, job.Id, string.Join(", ", scopeMapRequest.Repositories), string.Join(", ", scopeMapRequest.Actions));
 
             // Create token for the scope map
             var tokenName = $"job-{Guid.NewGuid().ToString("N").Substring(0, 8)}";
@@ -340,8 +386,9 @@ public sealed class JobsController : ControllerBase
             
             _dataStore.UpdateJob(job);
             
-            _logger.LogInformation("Created token {TokenName} for scheduled job run with username {Username}",
-                tokenName, tokenResponse.Username);
+            _logger.LogInformation("Created ACR token {TokenName} (ID: {TokenId}) for job {JobId} - Username: {Username}, RegistryServer: {RegistryServer}",
+                tokenName, tokenResponse.Id, job.Id, tokenResponse.Username, job.RegistryServer);
+            _logger.LogInformation("ACR credentials successfully regenerated for job {JobId} ({JobName})", job.Id, job.Name);
         }
         catch (Exception ex)
         {
