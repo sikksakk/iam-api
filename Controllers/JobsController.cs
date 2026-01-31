@@ -237,10 +237,8 @@ public sealed class JobsController : ControllerBase
 
         _logger.LogInformation("Updated job {JobId} status to {Status}", id, status);
 
-        // Regenerate ACR credentials when transitioning to Running
-        // This handles: scheduled job runs, retried jobs, copied jobs, or any job that needs fresh credentials
-        // ALWAYS regenerate for ACR jobs to ensure we have valid, fresh tokens
-        if (status == JobStatus.Running)
+        // Regenerate ACR credentials when transitioning to Running if needed
+        if (status == JobStatus.Running && job.RegistryId.HasValue)
         {
             _logger.LogDebug("Job {JobId} transitioning to Running - checking ACR credentials. RegistryId: {RegistryId}, RegistryUsername: {Username}, HasPassword: {HasPassword}, AcrTokenId: {TokenId}",
                 id, 
@@ -248,45 +246,58 @@ public sealed class JobsController : ControllerBase
                 job.RegistryUsername ?? "[NOT SET]",
                 !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
                 job.AcrTokenId?.ToString() ?? "[NOT SET]");
-                
-            if (job.RegistryId.HasValue)
+            
+            // Check if we need new credentials:
+            // 1. No credentials at all
+            // 2. Has AcrTokenId but token no longer exists in our data store (was deleted)
+            var needsNewCredentials = string.IsNullOrEmpty(job.RegistryUsername) || 
+                                       string.IsNullOrEmpty(job.RegistryPassword) ||
+                                       !job.AcrTokenId.HasValue;
+            
+            // If we have an AcrTokenId, verify the token still exists
+            if (job.AcrTokenId.HasValue && !needsNewCredentials)
             {
-                // Check if we have a valid AcrTokenId - if not, we need fresh credentials
-                // Also regenerate if we have stale credentials (username but no valid token reference)
-                var needsNewCredentials = !job.AcrTokenId.HasValue || 
-                    string.IsNullOrEmpty(job.RegistryUsername) || 
-                    string.IsNullOrEmpty(job.RegistryPassword);
-                
-                if (needsNewCredentials)
+                var existingToken = _dataStore.GetToken(job.AcrTokenId.Value);
+                if (existingToken == null)
                 {
-                    _logger.LogInformation("Job {JobId} is starting and needs fresh ACR credentials (AcrTokenId: {TokenId}, HasUsername: {HasUsername}) - regenerating", 
-                        id, job.AcrTokenId?.ToString() ?? "[NOT SET]", !string.IsNullOrEmpty(job.RegistryUsername));
-                    
-                    // Clear any stale credentials before regenerating
-                    job.RegistryUsername = null;
-                    job.RegistryPassword = null;
-                    job.AcrTokenId = null;
-                    job.AcrScopeMapId = null;
-                    
-                    await RegenerateAcrCredentialsIfNeededAsync(job);
-                    
-                    // Log the result of credential regeneration
-                    _logger.LogInformation("After ACR credential regeneration for job {JobId}: Username={Username}, HasPassword={HasPassword}, AcrTokenId={TokenId}, AcrScopeMapId={ScopeMapId}",
-                        id,
-                        job.RegistryUsername ?? "[NOT SET]",
-                        !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
-                        job.AcrTokenId?.ToString() ?? "[NOT SET]",
-                        job.AcrScopeMapId?.ToString() ?? "[NOT SET]");
+                    _logger.LogWarning("Job {JobId} references AcrTokenId {TokenId} but token no longer exists - will regenerate", 
+                        id, job.AcrTokenId.Value);
+                    needsNewCredentials = true;
                 }
                 else
                 {
-                    _logger.LogDebug("Job {JobId} already has valid ACR credentials with AcrTokenId {TokenId}", id, job.AcrTokenId);
+                    _logger.LogDebug("Job {JobId} has valid existing token {TokenId} ({Username})", 
+                        id, job.AcrTokenId.Value, existingToken.Username);
                 }
+            }
+            
+            if (needsNewCredentials)
+            {
+                _logger.LogInformation("Job {JobId} needs fresh ACR credentials - regenerating (old Username={OldUsername}, AcrTokenId={OldTokenId})", 
+                    id, job.RegistryUsername ?? "[NONE]", job.AcrTokenId?.ToString() ?? "[NONE]");
+                
+                // Clear stale credentials
+                job.RegistryUsername = null;
+                job.RegistryPassword = null;
+                job.AcrTokenId = null;
+                job.AcrScopeMapId = null;
+                
+                await RegenerateAcrCredentialsIfNeededAsync(job);
+                
+                _logger.LogInformation("ACR credentials generated for job {JobId}: Username={Username}, HasPassword={HasPassword}, AcrTokenId={TokenId}",
+                    id,
+                    job.RegistryUsername ?? "[NOT SET]",
+                    !string.IsNullOrEmpty(job.RegistryPassword) ? "YES" : "NO",
+                    job.AcrTokenId?.ToString() ?? "[NOT SET]");
             }
             else
             {
-                _logger.LogDebug("Job {JobId} has no RegistryId - ACR credential regeneration not needed", id);
+                _logger.LogDebug("Job {JobId} already has valid ACR credentials - no regeneration needed", id);
             }
+        }
+        else if (status == JobStatus.Running)
+        {
+            _logger.LogDebug("Job {JobId} has no RegistryId - ACR credential check not needed", id);
         }
 
         // Clean up orchestrator assignment and ACR resources when job completes or fails
