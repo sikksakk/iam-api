@@ -431,6 +431,12 @@ td {
     border-radius: 6px;
     font-size: 0.875rem;
     transition: all 0.2s;
+    background: white;
+    color: #1f2937;
+}
+
+.form-control::placeholder {
+    color: #9ca3af;
 }
 
 .form-control:focus {
@@ -573,6 +579,8 @@ td {
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 0.875rem;
+    background: white;
+    color: #1f2937;
 }
 
 .remove-param-btn {
@@ -702,6 +710,8 @@ td {
     border-radius: 6px;
     font-size: 0.875rem;
     text-align: center;
+    background: white;
+    color: #1f2937;
 }
 
 .remove-time-btn {
@@ -777,6 +787,7 @@ td {
     gap: 8px;
     cursor: pointer;
     font-size: 0.875rem;
+    color: #374151;
 }
 
 .parameters-section {
@@ -809,6 +820,8 @@ td {
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 0.875rem;
+    background: white;
+    color: #1f2937;
 }
 
 .logs-container {
@@ -1235,6 +1248,7 @@ td {
     align-items: center;
     gap: 8px;
     font-size: 0.875rem;
+    color: #374151;
 }
 
 .cancel-btn {
@@ -1350,6 +1364,8 @@ tr.expired td {
     border: 1px solid #d1d5db;
     font-size: 0.875rem;
     width: auto;
+    background: white;
+    color: #1f2937;
 }
 
 .auto-refresh-label {
@@ -1547,6 +1563,7 @@ tr.expired td {
     border-radius: 4px;
     font-size: 0.75rem;
     background: white;
+    color: #1f2937;
 }
 
 .filter-input:focus {
@@ -2292,6 +2309,26 @@ tr.expired td {
     color: var(--text-primary);
 }
 
+[data-theme="dark"] .form-control::placeholder {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .add-registry-form {
+    border-top-color: var(--border-color);
+}
+
+[data-theme="dark"] .add-registry-form h3 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .create-form {
+    background: var(--bg-tertiary);
+}
+
+[data-theme="dark"] .create-form h4 {
+    color: var(--text-primary);
+}
+
 [data-theme="dark"] .form-control:focus {
     border-color: #10b981;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
@@ -2299,6 +2336,23 @@ tr.expired td {
 
 [data-theme="dark"] .modal-footer {
     border-top-color: var(--border-color);
+}
+
+/* Dark mode for select elements */
+[data-theme="dark"] .log-selector select,
+[data-theme="dark"] .filter-select,
+[data-theme="dark"] select.form-control {
+    background: var(--input-bg);
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .log-selector label {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .auto-refresh-label {
+    color: var(--text-secondary);
 }
 
 [data-theme="dark"] .parameter-input {
@@ -2327,6 +2381,36 @@ tr.expired td {
 [data-theme="dark"] .day-btn.active {
     background: #10b981;
     color: white;
+}
+
+[data-theme="dark"] .cron-preview {
+    background: var(--bg-secondary);
+}
+
+[data-theme="dark"] .cron-preview label {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .preview-text {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .schedule-section h4 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .schedule-type label {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .time-input {
+    background: var(--input-bg);
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .checkbox-group label {
+    color: var(--text-secondary);
 }
 
 [data-theme="dark"] .toast {
